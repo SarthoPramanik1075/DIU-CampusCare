@@ -11,7 +11,8 @@
     "@campuscare/shared-types": "workspace:*",
     "kysely": "^0.27.5",
     "pg": "^8.22.0",
-    "uuidv7": "^1.0.2"
+    "uuidv7": "^1.0.2",
+    "pino": "^9.6.0"
   },
   "devDependencies": {
     "@types/node": "^22.10.6",
