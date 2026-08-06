@@ -5,14 +5,20 @@
   "type": "module",
   "description": "Core Application \u2014 deployable 1. Medical, medicine, fee, identity, notification, admin and audit behaviour. Holds no credential to the counseling database (ADR-001).",
   "scripts": {
-    "typecheck": "tsc --noEmit"
+    "typecheck": "tsc --noEmit",
+    "dev": "tsx watch src/bootstrap/main.ts",
+    "start": "node dist/bootstrap/main.js",
+    "build": "tsc -p tsconfig.build.json"
   },
   "dependencies": {
     "@campuscare/shared-types": "workspace:*",
     "kysely": "^0.27.5",
     "pg": "^8.22.0",
     "uuidv7": "^1.0.2",
-    "pino": "^9.6.0"
+    "pino": "^9.6.0",
+    "fastify": "^5.2.1",
+    "@fastify/cors": "^10.0.2",
+    "fastify-plugin": "^5.0.1"
   },
   "devDependencies": {
     "@types/node": "^22.10.6",
