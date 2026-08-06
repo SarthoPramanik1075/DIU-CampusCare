@@ -1,0 +1,22 @@
+{
+  "name": "@campuscare/core-api",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Core Application \u2014 deployable 1. Medical, medicine, fee, identity, notification, admin and audit behaviour. Holds no credential to the counseling database (ADR-001).",
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "@campuscare/shared-types": "workspace:*",
+    "kysely": "^0.27.5",
+    "pg": "^8.22.0",
+    "uuidv7": "^1.0.2"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.6",
+    "@types/pg": "^8.20.4",
+    "typescript": "^5.7.3",
+    "@campuscare/db-tools": "workspace:*"
+  }
+}

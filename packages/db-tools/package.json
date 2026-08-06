@@ -1,0 +1,29 @@
+{
+  "name": "@campuscare/db-tools",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Database provisioning and SQL migration runner. Shared by the CLI scripts and by both services' integration tests, so tests build their scratch databases through the same code path production uses.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "bin": {
+    "campuscare-migrate": "./src/migrate.ts",
+    "campuscare-db-setup": "./src/db-setup.ts"
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "dotenv": "^17.4.2",
+    "pg": "^8.22.0"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.6",
+    "@types/pg": "^8.20.4",
+    "typescript": "^5.7.3"
+  }
+}

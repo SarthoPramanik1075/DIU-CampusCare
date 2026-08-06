@@ -1,0 +1,46 @@
+{
+  "name": "diu-campuscare",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "DIU CampusCare \u2014 Smart Medical & Counseling Management System",
+  "packageManager": "pnpm@9.15.4",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "typecheck": "pnpm -r --parallel typecheck",
+    "lint": "eslint .",
+    "lint:fix": "eslint . --fix",
+    "format": "prettier --write .",
+    "format:check": "prettier --check .",
+    "test": "vitest run",
+    "test:watch": "vitest",
+    "test:unit": "vitest run --project unit",
+    "test:architecture": "vitest run --project architecture",
+    "test:integration": "vitest run --project integration",
+    "test:contract": "vitest run --project contract",
+    "db:setup": "tsx packages/db-tools/src/db-setup.ts",
+    "db:teardown": "tsx packages/db-tools/src/db-setup.ts --teardown",
+    "migrate:core": "tsx packages/db-tools/src/migrate.ts core",
+    "migrate:counseling": "tsx packages/db-tools/src/migrate.ts counseling",
+    "migrate": "pnpm migrate:core && pnpm migrate:counseling",
+    "contrast": "python3 tools/contrast.py",
+    "dev": "pnpm -r --parallel dev",
+    "build": "pnpm -r build"
+  },
+  "devDependencies": {
+    "@eslint/js": "^9.18.0",
+    "@types/node": "^22.10.6",
+    "@types/pg": "^8.20.4",
+    "dotenv": "^17.4.2",
+    "eslint": "^9.18.0",
+    "eslint-plugin-import-x": "^4.6.1",
+    "pg": "^8.22.0",
+    "prettier": "^3.4.2",
+    "tsx": "^4.19.2",
+    "typescript": "^5.7.3",
+    "typescript-eslint": "^8.20.0",
+    "vitest": "^2.1.8"
+  }
+}

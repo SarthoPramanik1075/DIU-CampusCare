@@ -1,0 +1,39 @@
+# Dependencies
+node_modules/
+.pnpm-store/
+
+# Build output
+dist/
+build/
+*.tsbuildinfo
+
+# Environment — never commit credentials
+.env
+.env.local
+.env.*.local
+
+# Test output
+coverage/
+test-results/
+playwright-report/
+blob-report/
+.vitest/
+
+# Editor
+.vscode/*
+!.vscode/extensions.json
+.idea/
+*.swp
+
+# OS
+.DS_Store
+Thumbs.db
+
+# Logs
+*.log
+npm-debug.log*
+pnpm-debug.log*
+
+# Python (tools/contrast.py)
+__pycache__/
+*.pyc
