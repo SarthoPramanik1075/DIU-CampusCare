@@ -5,7 +5,7 @@ import type {
   AuthorizationRouteConfig,
   PolicyEnforcementHandler,
 } from '../../../../kernel/authz/policy-enforcement-point.js';
-import type { ListActiveAnnouncementsHandler } from '../../application/list-active-announcements.handler.js';
+import type { ListActiveAnnouncementsHandler } from '../../application/queries/list-active-announcements.query.js';
 
 export interface AnnouncementRouteDeps {
   readonly pep: (config: AuthorizationRouteConfig) => PolicyEnforcementHandler;

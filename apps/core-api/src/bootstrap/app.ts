@@ -5,7 +5,7 @@ import { createPolicyEnforcementPoint } from '../kernel/authz/policy-enforcement
 import { registerCorrelationId } from '../kernel/http/correlation.js';
 import { registerErrorHandling } from '../kernel/http/error-handler.js';
 import { REDACTED_PATHS, REDACTION_CENSOR } from '../kernel/logging/redaction.js';
-import { registerAnnouncementRoutes } from '../modules/config/interface/http/announcements.routes.js';
+import { registerAnnouncementRoutes } from '../modules/config/index.js';
 
 import type { Container } from './container.js';
 

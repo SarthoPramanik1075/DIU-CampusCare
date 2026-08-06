@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "Counseling Service — deployable 2. Holds credential set B. No credential to campuscare_core exists (ADR-001). Refuses to start without [R3] crisis-protocol content (BR-68, EC-48).",
+  "description": "Counseling Service \u2014 deployable 2. Holds credential set B. No credential to campuscare_core exists (ADR-001). Refuses to start without [R3] crisis-protocol content (BR-68, EC-48).",
   "scripts": {
     "typecheck": "tsc --noEmit",
     "dev": "tsx watch src/bootstrap/main.ts",
@@ -19,6 +19,7 @@
   },
   "devDependencies": {
     "@types/node": "^22.10.6",
-    "typescript": "^5.7.3"
+    "typescript": "^5.7.3",
+    "@campuscare/architecture-testing": "workspace:*"
   }
 }

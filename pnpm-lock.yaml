@@ -8,6 +8,9 @@ importers:
 
   .:
     devDependencies:
+      '@campuscare/architecture-testing':
+        specifier: workspace:*
+        version: link:packages/architecture-testing
       '@eslint/js':
         specifier: ^9.18.0
         version: 9.39.5
@@ -72,6 +75,9 @@ importers:
         specifier: ^1.0.2
         version: 1.2.1
     devDependencies:
+      '@campuscare/architecture-testing':
+        specifier: workspace:*
+        version: link:../../packages/architecture-testing
       '@campuscare/db-tools':
         specifier: workspace:*
         version: link:../../packages/db-tools
@@ -103,12 +109,25 @@ importers:
         specifier: ^5.0.1
         version: 5.1.0
     devDependencies:
+      '@campuscare/architecture-testing':
+        specifier: workspace:*
+        version: link:../../packages/architecture-testing
       '@types/node':
         specifier: ^22.10.6
         version: 22.20.1
       typescript:
         specifier: ^5.7.3
         version: 5.9.3
+
+  packages/architecture-testing:
+    dependencies:
+      typescript:
+        specifier: ^5.7.3
+        version: 5.9.3
+    devDependencies:
+      '@types/node':
+        specifier: ^22.10.6
+        version: 22.20.1
 
   packages/db-tools:
     dependencies:

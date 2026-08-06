@@ -1,9 +1,9 @@
 import { describe, expect, it } from 'vitest';
 
-import type { Announcement } from '../domain/announcement.js';
+import type { Announcement } from '../../domain/announcement.js';
+import type { AnnouncementRepository } from '../announcement-repository.js';
 
-import type { AnnouncementRepository } from './announcement-repository.js';
-import { ListActiveAnnouncementsHandler } from './list-active-announcements.handler.js';
+import { ListActiveAnnouncementsHandler } from './list-active-announcements.query.js';
 
 class FixedClock {
   constructor(private readonly instant: Date) {}

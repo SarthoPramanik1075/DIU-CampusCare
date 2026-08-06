@@ -1,0 +1,22 @@
+{
+  "name": "@campuscare/architecture-testing",
+  "version": "0.1.0",
+  "private": true,
+  "type": "module",
+  "description": "Static-analysis utilities backing the DR-1…DR-7 architecture test suite. Test-only: nothing here is imported by production code in either service.",
+  "exports": {
+    ".": {
+      "types": "./src/index.ts",
+      "default": "./src/index.ts"
+    }
+  },
+  "scripts": {
+    "typecheck": "tsc --noEmit"
+  },
+  "dependencies": {
+    "typescript": "^5.7.3"
+  },
+  "devDependencies": {
+    "@types/node": "^22.10.6"
+  }
+}

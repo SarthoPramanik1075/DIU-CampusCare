@@ -3,7 +3,7 @@
  * imports from `domain/`, `application/` or `infrastructure/` directly.
  */
 export { isActive, type Announcement } from './domain/announcement.js';
-export { ListActiveAnnouncementsHandler } from './application/list-active-announcements.handler.js';
+export { ListActiveAnnouncementsHandler } from './application/queries/list-active-announcements.query.js';
 export type { AnnouncementRepository } from './application/announcement-repository.js';
 export { KyselyAnnouncementRepository } from './infrastructure/announcement.repository.js';
 export {

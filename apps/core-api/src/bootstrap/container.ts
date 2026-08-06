@@ -8,8 +8,7 @@ import { SystemClock, type Clock } from '../kernel/clock/clock.js';
 import { EventBus } from '../kernel/events/event-bus.js';
 import { createLogger } from '../kernel/logging/logger.js';
 import { PolicyStore } from '../kernel/policy/policy-store.js';
-import { ListActiveAnnouncementsHandler } from '../modules/config/application/list-active-announcements.handler.js';
-import { KyselyAnnouncementRepository } from '../modules/config/infrastructure/announcement.repository.js';
+import { KyselyAnnouncementRepository, ListActiveAnnouncementsHandler } from '../modules/config/index.js';
 
 import type { AppConfig } from './config.js';
 

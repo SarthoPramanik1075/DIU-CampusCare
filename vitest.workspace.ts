@@ -27,7 +27,13 @@ export default defineWorkspace([
   {
     test: {
       name: 'architecture',
-      include: ['apps/*/tests/architecture/**/*.test.ts'],
+      // Per-service rules (DR-1, DR-2, DR-4, DR-6, DR-7, immutability) live
+      // under each app's own tests/architecture/. Rules that inherently span
+      // both deployables — DR-3's cross-service import ban, and the database
+      // isolation proof — live at the repo root, because "does core-api
+      // import from counseling-api" is not a fact either service's own test
+      // directory can state on its own.
+      include: ['apps/*/tests/architecture/**/*.test.ts', 'tests/architecture/**/*.test.ts'],
       environment: 'node',
       // Architecture tests read the filesystem and parse imports; they are
       // slower than unit tests but must never be skipped.
