@@ -6,7 +6,7 @@
  * it exists to make ARCHITECTURE §3.2's dependency rules mechanically
  * checkable rather than a matter of code-review discipline.
  */
-export { listSourceFiles, type ListSourceFilesOptions } from './source-files.js';
+export { listModuleNames, listSourceFiles, type ListSourceFilesOptions } from './source-files.js';
 export { extractImports, resolveRelativeImport, type ImportSpecifier } from './imports.js';
 export { findMutationCalls, type MutationCall } from './mutation-calls.js';
 export { createFixture, type Fixture } from './fixtures.js';

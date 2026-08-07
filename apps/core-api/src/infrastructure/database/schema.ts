@@ -87,6 +87,28 @@ export interface UserSessionTable {
   client_fingerprint: string | null;
 }
 
+export type RoleCodeColumn = 'STU' | 'DOC' | 'MCS' | 'STO' | 'CNP' | 'ADM';
+
+export interface RoleTable {
+  id: string;
+  code: RoleCodeColumn;
+  name: string;
+}
+
+/**
+ * DDL-03 (`000_AMENDMENTS.md`) — DATABASE.md requires a single-use,
+ * time-limited reset token (FR-AUTH-08) but never defines its storage.
+ * Only the hash is stored, matching `local_credential.password_hash`.
+ */
+export interface PasswordResetTokenTable {
+  id: string;
+  user_account_id: string;
+  token_hash: string;
+  expires_at: Date;
+  consumed_at: Date | null;
+  created_at: Generated<Date>;
+}
+
 // ---------------------------------------------------------------------
 // schema: notification
 // ---------------------------------------------------------------------
@@ -187,6 +209,8 @@ export interface Database {
   'config.announcement': AnnouncementTable;
   'identity.user_account': UserAccountTable;
   'identity.user_session': UserSessionTable;
+  'identity.role': RoleTable;
+  'identity.password_reset_token': PasswordResetTokenTable;
   'notification.notification_template': NotificationTemplateTable;
   'notification.notification': NotificationTable;
   'notification.notification_outbox': NotificationOutboxTable;

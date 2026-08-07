@@ -1,6 +1,6 @@
 # Schema amendments against DATABASE.md
 
-Findings raised while implementing M0.5, with what was done about each.
+Findings raised while implementing M0.5 and M1, with what was done about each.
 
 `DATABASE.md` is approved, so nothing here is a preference. Each entry is
 either an **internal contradiction** — the document disagreeing with itself,
@@ -63,6 +63,31 @@ recorded at all.
 `fn_apply_stock_movement()`. `fn_bump_version()` owns that column and
 increments it — one writer per column, which is the reason that trigger
 exists.
+
+---
+
+### DDL-03 · no table for the password-reset token (M1)
+
+**Found by** implementing FR-AUTH-08 / API §1.8 ("a single-use, time-limited
+reset link"). `DATABASE.md`'s identity schema defines `user_account`,
+`local_credential`, `role`, `user_role`, `user_session`, `login_attempt`,
+`student_profile` and `booking_suspension` — no table for a reset token.
+
+**Not a contradiction like DDL-01/02** — nothing in the DDL disagrees with
+itself. It is an omission: a requirement the document states elsewhere
+(single-use, time-limited, consumed on success — API §1.8) has no storage
+defined for it anywhere in the approved schema.
+
+**Impact if unfixed.** No way to issue or validate a reset token at all;
+FR-AUTH-08 is unbuildable.
+
+**Applied**, in `006_iam_extensions.sql`: added `identity.password_reset_token`
+(`user_account_id`, `token_hash` — only the hash is stored, matching
+`local_credential.password_hash`'s reasoning — `expires_at`, `consumed_at`).
+Also seeded `identity.role`'s six rows (SRS §3.5.1) and two
+`notification.notification_template` rows the M1 outbox writes reference —
+both are reference/seed data no earlier migration populated, not schema
+changes.
 
 ---
 

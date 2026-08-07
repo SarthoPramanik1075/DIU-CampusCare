@@ -1,6 +1,6 @@
 import { resolve } from 'node:path';
 
-import { createFixture, extractImports, listSourceFiles } from '@campuscare/architecture-testing';
+import { createFixture, extractImports, listModuleNames, listSourceFiles } from '@campuscare/architecture-testing';
 import { describe, expect, it } from 'vitest';
 
 /**
@@ -39,7 +39,7 @@ function findCommandHandlersMissingAudit(applicationDir: string): string[] {
 const MODULES_DIR = resolve(import.meta.dirname, '../../src/modules');
 
 function allApplicationDirs(): string[] {
-  return ['config'].map((name) => resolve(MODULES_DIR, name, 'application'));
+  return listModuleNames(MODULES_DIR).map((name) => resolve(MODULES_DIR, name, 'application'));
 }
 
 describe('DR-7 · every command handler records an audit entry', () => {
@@ -47,15 +47,6 @@ describe('DR-7 · every command handler records an audit entry', () => {
     for (const dir of allApplicationDirs()) {
       expect(findCommandHandlersMissingAudit(dir)).toEqual([]);
     }
-  });
-
-  it('there are currently zero command handlers (only the announcements query handler exists)', () => {
-    // Documents *why* the real-code assertion above is not yet exercising
-    // anything: M0.5 ships one query, no commands. The synthetic-fixture
-    // tests below prove the rule still works even though real code cannot
-    // yet violate it.
-    const total = allApplicationDirs().flatMap((dir) => findCommandHandlerFiles(dir));
-    expect(total).toEqual([]);
   });
 
   it('the scanner catches a command handler that never imports AuditRecorder', () => {

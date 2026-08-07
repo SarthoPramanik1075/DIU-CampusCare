@@ -1,9 +1,9 @@
-import { readdirSync, statSync } from 'node:fs';
 import { resolve } from 'node:path';
 
 import {
   createFixture,
   extractImports,
+  listModuleNames,
   listSourceFiles,
   resolveRelativeImport,
 } from '@campuscare/architecture-testing';
@@ -16,14 +16,6 @@ import { describe, expect, it } from 'vitest';
  * X's own `index.ts` (its barrel) — never a path that reaches past the
  * barrel into `domain/`, `application/`, `infrastructure/` or `interface/`.
  */
-function listModuleNames(modulesDir: string): string[] {
-  try {
-    return readdirSync(modulesDir).filter((entry) => statSync(resolve(modulesDir, entry)).isDirectory());
-  } catch {
-    return [];
-  }
-}
-
 function findModuleBoundaryViolations(srcDir: string, modulesDir: string): string[] {
   const violations: string[] = [];
   const moduleNames = listModuleNames(modulesDir);

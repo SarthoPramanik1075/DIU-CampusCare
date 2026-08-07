@@ -9,6 +9,7 @@ import { EventBus } from '../kernel/events/event-bus.js';
 import { createLogger } from '../kernel/logging/logger.js';
 import { PolicyStore } from '../kernel/policy/policy-store.js';
 import { KyselyAnnouncementRepository, ListActiveAnnouncementsHandler } from '../modules/config/index.js';
+import { PasswordHasher } from '../modules/iam/index.js';
 
 import type { AppConfig } from './config.js';
 
@@ -27,6 +28,7 @@ export interface Container {
   readonly policyStore: PolicyStore;
   readonly auditRecorder: AuditRecorder;
   readonly pdp: PolicyDecisionPoint;
+  readonly passwordHasher: PasswordHasher;
   readonly listActiveAnnouncements: ListActiveAnnouncementsHandler;
 }
 
@@ -38,6 +40,7 @@ export function buildContainer(config: AppConfig): Container {
   const policyStore = new PolicyStore(db);
   const auditRecorder = new AuditRecorder(db);
   const pdp = new PolicyDecisionPoint();
+  const passwordHasher = new PasswordHasher();
 
   const announcementRepository = new KyselyAnnouncementRepository(db);
   const listActiveAnnouncements = new ListActiveAnnouncementsHandler(announcementRepository, clock);
@@ -51,6 +54,7 @@ export function buildContainer(config: AppConfig): Container {
     policyStore,
     auditRecorder,
     pdp,
+    passwordHasher,
     listActiveAnnouncements,
   };
 }

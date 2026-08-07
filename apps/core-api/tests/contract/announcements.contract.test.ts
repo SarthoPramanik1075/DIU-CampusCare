@@ -78,6 +78,7 @@ function buildTestApp(repository: AnnouncementRepository, now: Date): Promise<Fa
     policyStore: undefined as unknown as Container['policyStore'],
     auditRecorder: new AuditRecorder(undefined as unknown as ConstructorParameters<typeof AuditRecorder>[0]),
     pdp: new PolicyDecisionPoint(),
+    passwordHasher: undefined as unknown as Container['passwordHasher'],
     listActiveAnnouncements,
   };
 

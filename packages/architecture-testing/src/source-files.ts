@@ -48,3 +48,21 @@ export function listSourceFiles(dir: string, options: ListSourceFilesOptions = {
   walk(dir);
   return results.sort();
 }
+
+/**
+ * Lists the immediate subdirectory names of `modulesDir` — i.e. the
+ * module names under a service's `src/modules/`. Used by every
+ * per-module architecture rule (DR-2, DR-4, DR-6, DR-7) so that adding a
+ * new module (`modules/iam`, `modules/sch`, ...) makes it subject to
+ * those rules automatically, with no test file to remember to update.
+ *
+ * Returns an empty array, rather than throwing, when `modulesDir` does
+ * not exist yet — same reasoning as {@link listSourceFiles}.
+ */
+export function listModuleNames(modulesDir: string): string[] {
+  try {
+    return readdirSync(modulesDir).filter((entry) => statSync(join(modulesDir, entry)).isDirectory());
+  } catch {
+    return [];
+  }
+}

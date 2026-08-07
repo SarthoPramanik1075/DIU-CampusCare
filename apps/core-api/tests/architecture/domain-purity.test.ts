@@ -3,6 +3,7 @@ import { resolve } from 'node:path';
 import {
   createFixture,
   extractImports,
+  listModuleNames,
   listSourceFiles,
   resolveRelativeImport,
 } from '@campuscare/architecture-testing';
@@ -72,8 +73,7 @@ function findDomainPolicyImports(domainDir: string): string[] {
 const MODULES_DIR = resolve(import.meta.dirname, '../../src/modules');
 
 function allDomainDirs(): string[] {
-  // Currently one module (config); written to generalise as modules are added.
-  return ['config'].map((name) => resolve(MODULES_DIR, name, 'domain'));
+  return listModuleNames(MODULES_DIR).map((name) => resolve(MODULES_DIR, name, 'domain'));
 }
 
 describe('DR-6 · domain purity', () => {
