@@ -47,3 +47,31 @@
   font-size: var(--text-sm);
   color: var(--color-danger);
 }
+
+.cc-field__input-group {
+  position: relative;
+}
+
+.cc-field__input-group .cc-field__input {
+  width: 100%;
+  padding-right: calc(var(--space-2) + 24px);
+}
+
+.cc-field__reveal {
+  position: absolute;
+  top: 0;
+  right: 0;
+  height: 40px;
+  width: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: none;
+  border: none;
+  color: var(--color-text-secondary);
+  cursor: pointer;
+}
+
+.cc-field__reveal:hover {
+  color: var(--color-text);
+}

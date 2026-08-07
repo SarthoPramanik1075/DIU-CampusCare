@@ -35,6 +35,22 @@ export class MalformedApiResponseError extends Error {
   }
 }
 
+async function handleResponse<T>(response: Response): Promise<T> {
+  if (!response.ok) {
+    const body: unknown = await response.json().catch(() => undefined);
+    if (isErrorResponse(body)) {
+      throw new ApiError(response.status, body.error.code, body.error.message, body.error.correlationId);
+    }
+    throw new MalformedApiResponseError(response.status);
+  }
+
+  // API §1.4's 204 (logout) and a handful of other no-body successes never
+  // send a JSON payload — parsing an empty body as JSON throws, so this is
+  // checked rather than assumed.
+  if (response.status === 204) return undefined as T;
+  return (await response.json()) as T;
+}
+
 /**
  * `GET` against one of the two services (ADR-001 — each has its own base
  * URL, never a shared one). No credentials are sent by the public
@@ -48,14 +64,44 @@ export async function apiGet<T>(baseUrl: string, path: string): Promise<T> {
     credentials: 'include',
     headers: { Accept: 'application/json' },
   });
+  return handleResponse<T>(response);
+}
 
-  if (!response.ok) {
-    const body: unknown = await response.json().catch(() => undefined);
-    if (isErrorResponse(body)) {
-      throw new ApiError(response.status, body.error.code, body.error.message, body.error.correlationId);
-    }
-    throw new MalformedApiResponseError(response.status);
-  }
+/**
+ * `POST`/`PATCH`/`DELETE` — API §0.2: "every state-changing request
+ * additionally requires a `X-CSRF-Token`" derived from the session the
+ * login/session response issued. `csrfToken` is omitted only for the
+ * handful of pre-session calls (login itself, password-reset request)
+ * that have no session yet to derive one from.
+ */
+async function mutate<T>(
+  method: 'POST' | 'PATCH' | 'DELETE',
+  baseUrl: string,
+  path: string,
+  body: unknown,
+  csrfToken: string | undefined,
+): Promise<T> {
+  const response = await fetch(`${baseUrl}${path}`, {
+    method,
+    credentials: 'include',
+    headers: {
+      Accept: 'application/json',
+      'Content-Type': 'application/json',
+      ...(csrfToken === undefined ? {} : { 'X-CSRF-Token': csrfToken }),
+    },
+    body: JSON.stringify(body ?? {}),
+  });
+  return handleResponse<T>(response);
+}
 
-  return (await response.json()) as T;
+export function apiPost<T>(baseUrl: string, path: string, body: unknown, csrfToken?: string): Promise<T> {
+  return mutate<T>('POST', baseUrl, path, body, csrfToken);
+}
+
+export function apiPatch<T>(baseUrl: string, path: string, body: unknown, csrfToken: string): Promise<T> {
+  return mutate<T>('PATCH', baseUrl, path, body, csrfToken);
+}
+
+export function apiDelete<T>(baseUrl: string, path: string, body: unknown, csrfToken: string): Promise<T> {
+  return mutate<T>('DELETE', baseUrl, path, body, csrfToken);
 }

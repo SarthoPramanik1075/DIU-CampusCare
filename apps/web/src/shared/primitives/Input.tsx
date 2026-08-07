@@ -1,4 +1,4 @@
-import { useId, type ChangeEvent, type JSX } from 'react';
+import { useId, useState, type ChangeEvent, type JSX } from 'react';
 
 import './Input.css';
 import { Icon } from './icons.js';
@@ -10,7 +10,7 @@ export interface InputProps {
   readonly required?: boolean;
   readonly help?: string;
   readonly error?: string;
-  readonly type?: 'text' | 'email' | 'search';
+  readonly type?: 'text' | 'email' | 'search' | 'password';
   readonly inputMode?: 'text' | 'numeric' | 'email' | 'search';
   readonly autoComplete?: string;
   readonly placeholder?: string;
@@ -22,6 +22,11 @@ export interface InputProps {
  * error is always three signals at once (the 2px danger border, the ⚠
  * icon, and the message) rather than colour alone, applying the O3
  * principle to form state.
+ *
+ * `type="password"` renders the 👁 visibility toggle the P-06/P-08
+ * wireframes show — masked by default, revealed only while the control has
+ * focus-equivalent intent from the user (a deliberate click/tap), never
+ * defaulting to visible.
  */
 export function Input(props: InputProps): JSX.Element {
   const { label, value, onChange, required = false, help, error, type = 'text', inputMode, autoComplete, placeholder } =
@@ -31,6 +36,8 @@ export function Input(props: InputProps): JSX.Element {
   const errorId = error !== undefined ? `${id}-error` : undefined;
   const describedBy =
     [helpId, errorId].filter((candidate): candidate is string => candidate !== undefined).join(' ') || undefined;
+  const [revealed, setRevealed] = useState(false);
+  const isPassword = type === 'password';
 
   function handleChange(event: ChangeEvent<HTMLInputElement>): void {
     onChange(event.target.value);
@@ -46,20 +53,35 @@ export function Input(props: InputProps): JSX.Element {
           </span>
         )}
       </label>
-      <input
-        id={id}
-        className="cc-field__input"
-        type={type}
-        inputMode={inputMode}
-        autoComplete={autoComplete}
-        placeholder={placeholder}
-        value={value}
-        onChange={handleChange}
-        required={required}
-        aria-required={required ? 'true' : undefined}
-        aria-invalid={error !== undefined ? 'true' : undefined}
-        aria-describedby={describedBy}
-      />
+      <div className={isPassword ? 'cc-field__input-group' : undefined}>
+        <input
+          id={id}
+          className="cc-field__input"
+          type={isPassword ? (revealed ? 'text' : 'password') : type}
+          inputMode={inputMode}
+          autoComplete={autoComplete}
+          placeholder={placeholder}
+          value={value}
+          onChange={handleChange}
+          required={required}
+          aria-required={required ? 'true' : undefined}
+          aria-invalid={error !== undefined ? 'true' : undefined}
+          aria-describedby={describedBy}
+        />
+        {isPassword && (
+          <button
+            type="button"
+            className="cc-field__reveal"
+            aria-label={revealed ? 'Hide password' : 'Show password'}
+            aria-pressed={revealed}
+            onClick={() => {
+              setRevealed((current) => !current);
+            }}
+          >
+            <Icon name={revealed ? 'eye-off' : 'eye'} />
+          </button>
+        )}
+      </div>
       {help !== undefined && (
         <span id={helpId} className="cc-field__help">
           {help}

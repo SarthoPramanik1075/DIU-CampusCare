@@ -38,7 +38,9 @@ export type IconName =
   | 'package'
   | 'wifi-off'
   | 'refresh'
-  | 'external-link';
+  | 'external-link'
+  | 'eye'
+  | 'eye-off';
 
 type IconRenderer = (props: SVGProps<SVGSVGElement>) => JSX.Element;
 
@@ -204,6 +206,20 @@ const ICONS: Record<IconName, IconRenderer> = {
       <path d="M14 4h6v6" />
       <path d="M20 4 10 14" />
       <path d="M18 13v5a2 2 0 0 1-2 2H6a2 2 0 0 1-2-2V8a2 2 0 0 1 2-2h5" />
+    </>
+  ),
+  eye: icon(
+    <>
+      <path d="M2 12s3.5-7 10-7 10 7 10 7-3.5 7-10 7-10-7-10-7Z" />
+      <circle cx="12" cy="12" r="3" />
+    </>
+  ),
+  'eye-off': icon(
+    <>
+      <path d="M3 3l18 18" />
+      <path d="M10.6 5.2A10.8 10.8 0 0 1 12 5c6.5 0 10 7 10 7a17.7 17.7 0 0 1-3.2 4.1" />
+      <path d="M6.6 6.6C4 8.3 2 12 2 12s3.5 7 10 7a9.6 9.6 0 0 0 4.4-1" />
+      <path d="M9.9 9.9a3 3 0 0 0 4.2 4.2" />
     </>
   ),
 };
