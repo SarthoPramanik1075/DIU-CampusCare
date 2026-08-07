@@ -30,8 +30,11 @@ export function registerAnnouncementRoutes(app: FastifyInstance, deps: Announcem
   app.get(
     '/api/v1/public/announcements',
     { preHandler: deps.pep({ resource: 'announcements', action: 'read' }) },
-    async () => {
+    async (_request, reply) => {
       const items = await deps.listActiveAnnouncements.execute();
+      // API §2.5: "the response is identical for every viewer, which is
+      // what makes it edge-cacheable and safe."
+      reply.header('Cache-Control', 'public, max-age=60');
       return {
         items: items.map((announcement) => ({
           id: announcement.id,

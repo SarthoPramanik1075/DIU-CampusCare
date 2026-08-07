@@ -1,0 +1,135 @@
+name: CI
+
+# M0.5-T04/T13/T14 — the architecture, accessibility and performance gates
+# are not advisory here: ARCHITECTURE §3.2 requires the build to fail on a
+# DR-1…DR-7 violation, and FRONTEND §13.8 requires contrast/axe to gate CI.
+#
+# Not covered by this workflow, deliberately rather than by omission:
+#   - The 320px CrisisBanner snapshot (ROADMAP M0.5-T13, FRONTEND §11.6).
+#     `CrisisBanner` itself is not built until ROADMAP M6-T06 ("mounted by
+#     the counseling route layout") — there is no component to snapshot
+#     yet. Faking this check against a stand-in would test the stand-in,
+#     not FR-CNS-04; it is added in the M6 checkpoint that ships the real
+#     component, not stubbed here to make a checklist item green.
+#   - Deploy to staging (ROADMAP M0.5-T16) — needs real hosting
+#     infrastructure and credentials this repository does not have.
+on:
+  push:
+    branches: [main]
+  pull_request:
+
+env:
+  PNPM_VERSION: 9.15.4
+  NODE_VERSION: 22.13.1
+
+jobs:
+  fast-checks:
+    name: Typecheck, lint, unit
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Typecheck workspace packages
+        run: pnpm typecheck
+
+      - name: Typecheck root-level config and tests
+        run: npx tsc --noEmit -p tsconfig.json
+
+      - name: Lint
+        run: pnpm lint
+
+      - name: Unit tests (unit + web)
+        run: pnpm test:unit
+
+  full-suite:
+    name: Architecture, integration, contract, accessibility, E2E
+    needs: fast-checks
+    runs-on: ubuntu-latest
+
+    services:
+      postgres:
+        image: postgres:16
+        env:
+          POSTGRES_USER: postgres
+          POSTGRES_PASSWORD: postgres
+          POSTGRES_DB: postgres
+        ports:
+          - 5432:5432
+        options: >-
+          --health-cmd pg_isready
+          --health-interval 10s
+          --health-timeout 5s
+          --health-retries 5
+
+    env:
+      # `db:setup` provisions campuscare_core/campuscare_counseling and
+      # their roles against this superuser, then writes the generated
+      # per-role URLs into a fresh `.env` at the repo root — the same file
+      # every service's own config loader resolves against locally
+      # (see `apps/core-api/src/bootstrap/config.ts`). Nothing downstream
+      # in this job sets a database URL directly; it all comes from that
+      # generated `.env`.
+      ADMIN_DATABASE_URL: postgresql://postgres:postgres@localhost:5432/postgres
+
+    steps:
+      - uses: actions/checkout@v4
+
+      - uses: pnpm/action-setup@v4
+        with:
+          version: ${{ env.PNPM_VERSION }}
+
+      - uses: actions/setup-node@v4
+        with:
+          node-version: ${{ env.NODE_VERSION }}
+          cache: pnpm
+
+      - run: pnpm install --frozen-lockfile
+
+      - name: Provision databases and roles — ADR-001
+        run: pnpm db:setup
+
+      - name: Migrate both databases
+        run: pnpm migrate
+
+      - name: Architecture tests (DR-1…DR-7, isolation, immutability)
+        run: pnpm test:architecture
+
+      - name: Integration tests (real Postgres)
+        run: pnpm test:integration
+
+      - name: Contract tests (HTTP shape vs API.md)
+        run: pnpm test:contract
+
+      - name: Build every workspace package
+        run: pnpm build
+
+      - name: Bundle budget — NFR-PERF-02 (≤500 KB gzip per student view)
+        run: pnpm check:bundle-budget
+
+      - name: Contrast verification — FRONTEND §4.1.3
+        run: pnpm contrast
+
+      - name: Install Playwright browsers
+        run: npx playwright install --with-deps chromium
+
+      - name: E2E + per-route accessibility (axe) — FRONTEND §13.8
+        run: pnpm test:e2e
+
+      - name: Upload Playwright report
+        if: failure()
+        uses: actions/upload-artifact@v4
+        with:
+          name: playwright-report
+          path: playwright-report/
+          retention-days: 7

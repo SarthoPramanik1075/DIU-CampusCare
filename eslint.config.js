@@ -159,12 +159,21 @@ export default tseslint.config(
   // service writing to console bypasses all of it. A migration CLI is not a
   // service: stdout is its interface, and progress output is the point.
   {
-    files: ['packages/db-tools/src/**/*.ts', 'tools/**/*.ts'],
+    files: ['packages/db-tools/src/**/*.ts', 'tools/**/*.ts', 'tools/**/*.mjs'],
     rules: { 'no-console': 'off' },
   },
 
   {
-    files: ['**/*.js'],
+    files: ['**/*.js', '**/*.mjs'],
     ...tseslint.configs.disableTypeChecked,
+  },
+
+  // Plain Node scripts (no tsconfig, hence no typed linting and no TS-aware
+  // `no-undef` suppression) — declare the two Node globals they use.
+  {
+    files: ['tools/**/*.mjs'],
+    languageOptions: {
+      globals: { process: 'readonly', console: 'readonly' },
+    },
   },
 );

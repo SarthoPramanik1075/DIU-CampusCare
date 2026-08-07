@@ -57,8 +57,12 @@ export default defineWorkspace([
       name: 'integration',
       include: ['apps/*/tests/integration/**/*.test.ts'],
       environment: 'node',
-      // Each file provisions and drops its own scratch database.
-      fileParallelism: false,
+      // Each file provisions and drops its own scratch database, so files
+      // must run one at a time. `fileParallelism` itself is root-only in
+      // this vitest version's types (see `NonProjectOptions`); constraining
+      // the default `threads` pool to a single thread is the per-project
+      // equivalent — the same "one file at a time" guarantee.
+      poolOptions: { threads: { singleThread: true } },
       testTimeout: 60_000,
       hookTimeout: 60_000,
     },
@@ -68,7 +72,7 @@ export default defineWorkspace([
       name: 'contract',
       include: ['apps/*/tests/contract/**/*.test.ts'],
       environment: 'node',
-      fileParallelism: false,
+      poolOptions: { threads: { singleThread: true } },
       testTimeout: 30_000,
       hookTimeout: 60_000,
     },

@@ -6,5 +6,11 @@
     "noEmit": true,
     "types": ["node"]
   },
-  "include": ["vitest.workspace.ts", "eslint.config.js", "tools/**/*.ts", "tests/**/*.ts"]
+  "include": [
+    "vitest.workspace.ts",
+    "playwright.config.ts",
+    "eslint.config.js",
+    "tools/**/*.ts",
+    "tests/**/*.ts"
+  ]
 }
