@@ -63,6 +63,31 @@ describe('SessionStore', () => {
     });
   });
 
+  describe('peek', () => {
+    it('returns the session without sliding its expiry', async () => {
+      const created = await store.create({ userAccountId: userId, idleTimeoutMs: STUDENT_TIMEOUT_MS });
+
+      clock.advanceMs(5 * 60 * 1000);
+      const peeked = await store.peek(created.id);
+
+      expect(peeked).not.toBeNull();
+      expect(peeked?.expiresAt.getTime()).toBe(created.expiresAt.getTime()); // unchanged
+    });
+
+    it('returns null for an unknown, expired or revoked session — same as validateAndTouch', async () => {
+      await expect(store.peek('01920000-0000-7000-8000-ffffffffffff')).resolves.toBeNull();
+
+      const expiring = await store.create({ userAccountId: userId, idleTimeoutMs: 1000 });
+      clock.advanceMs(1001);
+      await expect(store.peek(expiring.id)).resolves.toBeNull();
+
+      clock.advanceMs(-1001); // restore, so the next case starts from a clean baseline
+      const revoked = await store.create({ userAccountId: userId, idleTimeoutMs: STUDENT_TIMEOUT_MS });
+      await store.revoke(revoked.id);
+      await expect(store.peek(revoked.id)).resolves.toBeNull();
+    });
+  });
+
   describe('validateAndTouch', () => {
     it('returns the session and slides the expiry forward on activity', async () => {
       const created = await store.create({ userAccountId: userId, idleTimeoutMs: STUDENT_TIMEOUT_MS });

@@ -3,7 +3,7 @@ import type { FastifyReply, FastifyRequest } from 'fastify';
 import type { AuditRecorder } from '../audit/audit-recorder.js';
 import { AuthorizationError } from '../errors/domain-error.js';
 import { getCorrelationId } from '../http/correlation.js';
-import { resolveAnonymousSubject } from '../identity/subject-resolver.js';
+import type { SubjectResolver } from '../identity/subject-resolver.js';
 
 import type { CoreResourceName, PermissionAction } from './permission-matrix.js';
 import type { PolicyDecisionPoint } from './policy-decision-point.js';
@@ -44,13 +44,11 @@ export type PolicyEnforcementHandler = (request: FastifyRequest, reply: FastifyR
 export function createPolicyEnforcementPoint(deps: {
   readonly pdp: PolicyDecisionPoint;
   readonly auditRecorder: AuditRecorder;
+  readonly resolveSubject: SubjectResolver;
 }): (config: AuthorizationRouteConfig) => PolicyEnforcementHandler {
   return (config) =>
     async function policyEnforcementPoint(request, _reply) {
-      // Until M1 exists every request is anonymous — see the resolver's own
-      // doc comment. This call site is where a real cookie-based subject
-      // will be substituted in; nothing else in this function changes.
-      const subject = resolveAnonymousSubject();
+      const subject = await deps.resolveSubject(request);
 
       const decision = await deps.pdp.decide({
         subject,

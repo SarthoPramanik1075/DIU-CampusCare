@@ -1,6 +1,8 @@
 import type { FastifyReply, FastifyRequest } from 'fastify';
 import { describe, expect, it, vi } from 'vitest';
 
+import { resolveAnonymousSubject } from '../identity/subject-resolver.js';
+
 import type { AuthorizationDecision, PolicyDecisionPoint } from './policy-decision-point.js';
 import { createPolicyEnforcementPoint } from './policy-enforcement-point.js';
 
@@ -12,11 +14,13 @@ function fakePdp(decision: AuthorizationDecision): PolicyDecisionPoint {
   return { decide: vi.fn().mockResolvedValue(decision) } as unknown as PolicyDecisionPoint;
 }
 
+const resolveSubject = () => Promise.resolve(resolveAnonymousSubject());
+
 describe('createPolicyEnforcementPoint', () => {
   it('resolves without throwing when the decision permits', async () => {
     const pdp = fakePdp({ permit: true });
     const recordDenial = vi.fn();
-    const pep = createPolicyEnforcementPoint({ pdp, auditRecorder: { recordDenial } as never });
+    const pep = createPolicyEnforcementPoint({ pdp, auditRecorder: { recordDenial } as never, resolveSubject });
 
     const handler = pep({ resource: 'announcements', action: 'read' });
     await expect(
@@ -32,7 +36,7 @@ describe('createPolicyEnforcementPoint', () => {
       message: 'You do not have permission to do that.',
     });
     const recordDenial = vi.fn().mockResolvedValue(undefined);
-    const pep = createPolicyEnforcementPoint({ pdp, auditRecorder: { recordDenial } as never });
+    const pep = createPolicyEnforcementPoint({ pdp, auditRecorder: { recordDenial } as never, resolveSubject });
 
     const handler = pep({ resource: 'general-audit-log', action: 'read' });
     await expect(handler(fakeRequest('corr-2'), {} as FastifyReply)).rejects.toMatchObject({
@@ -56,6 +60,7 @@ describe('createPolicyEnforcementPoint', () => {
     const pep = createPolicyEnforcementPoint({
       pdp,
       auditRecorder: { recordDenial: vi.fn().mockResolvedValue(undefined) } as never,
+      resolveSubject,
     });
 
     const handler = pep({ resource: 'own-profile', action: 'read' });

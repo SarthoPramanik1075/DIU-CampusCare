@@ -95,6 +95,33 @@ export interface RoleTable {
   name: string;
 }
 
+export interface LocalCredentialTable {
+  user_account_id: string;
+  password_hash: string;
+  failed_attempts: Generated<number>;
+  locked_until: Date | null;
+  password_changed_at: Generated<Date>;
+  version: Generated<number>;
+}
+
+export interface UserRoleTable {
+  id: string;
+  user_account_id: string;
+  role_id: string;
+  granted_by: string;
+  granted_at: Generated<Date>;
+  revoked_at: Date | null;
+}
+
+export interface LoginAttemptTable {
+  id: string;
+  email_attempted: string;
+  user_account_id: string | null;
+  succeeded: boolean;
+  source_address: string | null;
+  attempted_at: Generated<Date>;
+}
+
 /**
  * DDL-03 (`000_AMENDMENTS.md`) — DATABASE.md requires a single-use,
  * time-limited reset token (FR-AUTH-08) but never defines its storage.
@@ -210,6 +237,9 @@ export interface Database {
   'identity.user_account': UserAccountTable;
   'identity.user_session': UserSessionTable;
   'identity.role': RoleTable;
+  'identity.local_credential': LocalCredentialTable;
+  'identity.user_role': UserRoleTable;
+  'identity.login_attempt': LoginAttemptTable;
   'identity.password_reset_token': PasswordResetTokenTable;
   'notification.notification_template': NotificationTemplateTable;
   'notification.notification': NotificationTable;

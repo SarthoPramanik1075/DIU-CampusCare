@@ -56,11 +56,19 @@ export class ValidationError extends DomainError {
   readonly errorClass = 'validation' as const;
 }
 
-/** 401 or 403 — session invalid, or the PDP denied. Caller states which. */
+/**
+ * 401, 403 or 423 — session invalid, the PDP denied, or (423) the account
+ * is temporarily locked out (FR-AUTH-14, API §1.3 `ACCOUNT_LOCKED`). 423
+ * was not in ARCHITECTURE §10.1's original taxonomy table — only M1's
+ * login handler needed it — but it is the same *kind* of failure as 401/403
+ * (the caller may not authenticate right now), not a 409 state conflict or
+ * a 422 field error, so it extends this class rather than becoming a sixth
+ * taxonomy class for one endpoint.
+ */
 export class AuthorizationError extends DomainError {
   readonly errorClass = 'authorization' as const;
-  readonly httpStatus: 401 | 403;
-  constructor(init: DomainErrorInit & { readonly httpStatus?: 401 | 403 }) {
+  readonly httpStatus: 401 | 403 | 423;
+  constructor(init: DomainErrorInit & { readonly httpStatus?: 401 | 403 | 423 }) {
     super(init);
     this.httpStatus = init.httpStatus ?? 403;
   }

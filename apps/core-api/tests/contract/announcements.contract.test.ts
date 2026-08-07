@@ -5,6 +5,7 @@ import { buildApp } from '../../src/bootstrap/app.js';
 import type { Container } from '../../src/bootstrap/container.js';
 import { AuditRecorder } from '../../src/kernel/audit/audit-recorder.js';
 import { PolicyDecisionPoint } from '../../src/kernel/authz/policy-decision-point.js';
+import { resolveAnonymousSubject } from '../../src/kernel/identity/subject-resolver.js';
 import {
   ListActiveAnnouncementsHandler,
   type Announcement,
@@ -62,6 +63,7 @@ function buildTestApp(repository: AnnouncementRepository, now: Date): Promise<Fa
       webAppOrigin: 'http://localhost:5173',
       featureCounselingEnabled: false,
       featureEmailEnabled: false,
+      sessionSecret: 'a'.repeat(32),
     },
     // Nothing in this contract test's request path touches the database —
     // the announcements route is ANON-permitted, so the PEP never calls
@@ -79,7 +81,16 @@ function buildTestApp(repository: AnnouncementRepository, now: Date): Promise<Fa
     auditRecorder: new AuditRecorder(undefined as unknown as ConstructorParameters<typeof AuditRecorder>[0]),
     pdp: new PolicyDecisionPoint(),
     passwordHasher: undefined as unknown as Container['passwordHasher'],
+    sessionStore: undefined as unknown as Container['sessionStore'],
+    csrfTokenService: undefined as unknown as Container['csrfTokenService'],
+    // The announcements route is ANON-permitted, but the PEP still calls
+    // this on every request — unlike the auth-route handlers below, it
+    // must be a real, callable function, not a placeholder cast.
+    resolveSubject: () => Promise.resolve(resolveAnonymousSubject()),
     listActiveAnnouncements,
+    loginWithPassword: undefined as unknown as Container['loginWithPassword'],
+    logout: undefined as unknown as Container['logout'],
+    getSession: undefined as unknown as Container['getSession'],
   };
 
   return buildApp(container);

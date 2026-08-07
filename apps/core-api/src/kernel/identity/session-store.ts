@@ -74,6 +74,43 @@ export class SessionStore {
   }
 
   /**
+   * Reads a session without sliding its expiry — no side effect at all.
+   *
+   * Exists because the idle-timeout duration to apply on a touch is
+   * role-based (FR-AUTH-06), and roles belong to the account the session
+   * names, which this class has no way to look up itself (DR-1: no
+   * business knowledge in the kernel). The caller's real sequence is
+   * `peek` → load roles → `validateAndTouch(id, theCorrectDuration)` — two
+   * reads of the same row, but the alternative (guessing a duration before
+   * knowing the role) risks sliding a should-be-15-minute staff session
+   * forward by the student's more generous 30.
+   *
+   * Same null-collapsing as {@link validateAndTouch}: unknown, revoked and
+   * expired are indistinguishable to the caller.
+   */
+  async peek(sessionId: string): Promise<SessionRecord | null> {
+    const now = this.clock.now();
+    const existing = await this.db
+      .selectFrom('identity.user_session')
+      .selectAll()
+      .where('id', '=', sessionId)
+      .executeTakeFirst();
+
+    if (existing === undefined) return null;
+    if (existing.revoked_at !== null) return null;
+    if (existing.expires_at.getTime() <= now.getTime()) return null;
+
+    return {
+      id: existing.id,
+      userAccountId: existing.user_account_id,
+      issuedAt: existing.issued_at,
+      expiresAt: existing.expires_at,
+      lastSeenAt: existing.last_seen_at,
+      clientFingerprint: existing.client_fingerprint,
+    };
+  }
+
+  /**
    * Validates a session and, if it is still usable, slides its idle-timeout
    * window forward by `idleTimeoutMs` from now (FR-AUTH-06's "idle" timeout
    * is measured from last activity, not from login).

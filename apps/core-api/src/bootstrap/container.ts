@@ -6,10 +6,22 @@ import { AuditRecorder } from '../kernel/audit/audit-recorder.js';
 import { PolicyDecisionPoint } from '../kernel/authz/policy-decision-point.js';
 import { SystemClock, type Clock } from '../kernel/clock/clock.js';
 import { EventBus } from '../kernel/events/event-bus.js';
+import { CsrfTokenService } from '../kernel/identity/csrf.js';
+import { SessionStore } from '../kernel/identity/session-store.js';
+import type { SubjectResolver } from '../kernel/identity/subject-resolver.js';
 import { createLogger } from '../kernel/logging/logger.js';
+import { enqueueNotification } from '../kernel/notifications/enqueue-notification.js';
 import { PolicyStore } from '../kernel/policy/policy-store.js';
 import { KyselyAnnouncementRepository, ListActiveAnnouncementsHandler } from '../modules/config/index.js';
-import { PasswordHasher } from '../modules/iam/index.js';
+import {
+  createAuthenticatedSubjectResolver,
+  GetSessionQuery,
+  KyselyAuthenticationRepository,
+  LoginWithPasswordHandler,
+  LogoutHandler,
+  PasswordHasher,
+  type AuthenticationRepository,
+} from '../modules/iam/index.js';
 
 import type { AppConfig } from './config.js';
 
@@ -29,7 +41,13 @@ export interface Container {
   readonly auditRecorder: AuditRecorder;
   readonly pdp: PolicyDecisionPoint;
   readonly passwordHasher: PasswordHasher;
+  readonly sessionStore: SessionStore;
+  readonly csrfTokenService: CsrfTokenService;
+  readonly resolveSubject: SubjectResolver;
   readonly listActiveAnnouncements: ListActiveAnnouncementsHandler;
+  readonly loginWithPassword: LoginWithPasswordHandler;
+  readonly logout: LogoutHandler;
+  readonly getSession: GetSessionQuery;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -41,9 +59,26 @@ export function buildContainer(config: AppConfig): Container {
   const auditRecorder = new AuditRecorder(db);
   const pdp = new PolicyDecisionPoint();
   const passwordHasher = new PasswordHasher();
+  const sessionStore = new SessionStore(db, clock);
+  const csrfTokenService = new CsrfTokenService(config.sessionSecret);
 
   const announcementRepository = new KyselyAnnouncementRepository(db);
   const listActiveAnnouncements = new ListActiveAnnouncementsHandler(announcementRepository, clock);
+
+  const authenticationRepository: AuthenticationRepository = new KyselyAuthenticationRepository(db);
+  const getSession = new GetSessionQuery(authenticationRepository, sessionStore, csrfTokenService, policyStore);
+  const loginWithPassword = new LoginWithPasswordHandler(
+    authenticationRepository,
+    passwordHasher,
+    sessionStore,
+    csrfTokenService,
+    policyStore,
+    auditRecorder,
+    (input) => enqueueNotification(db, input),
+    clock,
+  );
+  const logout = new LogoutHandler(sessionStore, auditRecorder);
+  const resolveSubject = createAuthenticatedSubjectResolver(getSession);
 
   return {
     config,
@@ -55,7 +90,13 @@ export function buildContainer(config: AppConfig): Container {
     auditRecorder,
     pdp,
     passwordHasher,
+    sessionStore,
+    csrfTokenService,
+    resolveSubject,
     listActiveAnnouncements,
+    loginWithPassword,
+    logout,
+    getSession,
   };
 }
 

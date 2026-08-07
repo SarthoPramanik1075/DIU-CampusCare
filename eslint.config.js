@@ -138,6 +138,12 @@ export default tseslint.config(
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
+      // `expect(fake.someMethod).toHaveBeenCalledWith(...)` is the standard
+      // vitest mock-assertion shape; the rule is guarding against a real
+      // `this` binding hazard that cannot occur here — `someMethod` is
+      // never invoked unbound, only referenced for the spy call it already
+      // recorded.
+      '@typescript-eslint/unbound-method': 'off',
     },
   },
 

@@ -16,6 +16,8 @@ export interface AppConfig {
   /** BR-68: the vault's own deployment gate. core-api holds no counseling routes to gate, but shares the flag so both services agree on it. */
   readonly featureCounselingEnabled: boolean;
   readonly featureEmailEnabled: boolean;
+  /** API §0.2: HMAC key the CSRF token is derived from. Never used to sign or encrypt anything else. */
+  readonly sessionSecret: string;
 }
 
 function requireEnv(key: string): string {
@@ -40,5 +42,6 @@ export function loadConfig(): AppConfig {
     webAppOrigin: process.env.WEB_APP_ORIGIN ?? 'http://localhost:5173',
     featureCounselingEnabled: readBooleanFlag('FEATURE_COUNSELING_ENABLED', false),
     featureEmailEnabled: readBooleanFlag('FEATURE_EMAIL_ENABLED', false),
+    sessionSecret: requireEnv('SESSION_SECRET'),
   };
 }
