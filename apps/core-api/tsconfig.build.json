@@ -3,7 +3,14 @@
   "compilerOptions": {
     "noEmit": false,
     "declaration": false,
-    "declarationMap": false
+    "declarationMap": false,
+    // The base tsconfig's `rootDir: "."` accommodates both `src/` and
+    // `tests/` for typechecking; the production build excludes `tests/`
+    // entirely (below), so narrowing rootDir to `./src` here is what makes
+    // the emitted layout `dist/bootstrap/main.js` — matching what
+    // `package.json`'s `start` script actually runs — instead of nesting
+    // everything under `dist/src/`.
+    "rootDir": "./src"
   },
   "exclude": ["**/*.test.ts", "tests/**/*"]
 }

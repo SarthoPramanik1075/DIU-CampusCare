@@ -9,6 +9,7 @@
     "node": ">=22.13.0"
   },
   "scripts": {
+    "prepare": "pnpm --filter @campuscare/shared-types build",
     "typecheck": "pnpm -r --parallel typecheck",
     "lint": "eslint .",
     "lint:fix": "eslint . --fix",

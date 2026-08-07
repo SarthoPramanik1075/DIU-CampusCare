@@ -3,7 +3,11 @@
   "compilerOptions": {
     "noEmit": false,
     "declaration": false,
-    "declarationMap": false
+    "declarationMap": false,
+    // See apps/core-api/tsconfig.build.json for why this differs from the
+    // base tsconfig's rootDir — it's what makes `dist/bootstrap/main.js`
+    // exist where `package.json`'s `start` script expects it.
+    "rootDir": "./src"
   },
   "exclude": ["**/*.test.ts", "tests/**/*"]
 }

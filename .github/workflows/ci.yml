@@ -114,6 +114,35 @@ jobs:
       - name: Build every workspace package
         run: pnpm build
 
+      # A build that only typechecks and emits is not proof the *output*
+      # runs: `tsc` has no opinion on whether `dist/bootstrap/main.js`
+      # actually exists where `package.json`'s `start` script expects it,
+      # or whether a workspace dependency's compiled `exports` target
+      # resolves under plain `node` (as opposed to the `tsx`-transpiled
+      # dev path every other check in this workflow exercises). This step
+      # exists because both of those broke silently once, undetected until
+      # someone ran `pnpm start` by hand.
+      - name: Smoke-test the compiled production build
+        run: |
+          set -e
+          node apps/core-api/dist/bootstrap/main.js &
+          CORE_PID=$!
+          for i in $(seq 1 30); do
+            curl -sf http://localhost:3001/api/v1/public/announcements >/dev/null && break
+            sleep 1
+          done
+          curl -sf http://localhost:3001/api/v1/public/announcements | grep -q '"items"'
+          kill "$CORE_PID"
+
+          # BR-68/EC-48: with no [R3] content in this repository, the
+          # compiled counseling-api must refuse to start — a zero exit
+          # code here would mean the deployment gate silently stopped
+          # working.
+          if node apps/counseling-api/dist/bootstrap/main.js; then
+            echo "counseling-api started without [R3] content — BR-68/EC-48 gate is broken" >&2
+            exit 1
+          fi
+
       - name: Bundle budget — NFR-PERF-02 (≤500 KB gzip per student view)
         run: pnpm check:bundle-budget
 
