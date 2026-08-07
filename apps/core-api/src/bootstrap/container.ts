@@ -14,13 +14,19 @@ import { enqueueNotification } from '../kernel/notifications/enqueue-notificatio
 import { PolicyStore } from '../kernel/policy/policy-store.js';
 import { KyselyAnnouncementRepository, ListActiveAnnouncementsHandler } from '../modules/config/index.js';
 import {
+  ActivateAccountHandler,
   ConfirmPasswordResetHandler,
   createAuthenticatedSubjectResolver,
+  CreateAccountHandler,
+  DeactivateAccountHandler,
+  GetAccountDetailQuery,
   GetOwnProfileQuery,
   GetSessionQuery,
+  KyselyAccountAdminRepository,
   KyselyAuthenticationRepository,
   KyselyOwnProfileRepository,
   KyselyPasswordResetRepository,
+  ListAccountsQuery,
   LoginWithPasswordHandler,
   LogoutHandler,
   OpenIdClientSsoAdapter,
@@ -30,7 +36,10 @@ import {
   SessionIssuer,
   SsoCallbackHandler,
   SsoLoginHandler,
+  SuspendAccountHandler,
+  UpdateAccountAdminHandler,
   UpdateOwnProfileHandler,
+  type AccountAdminRepository,
   type AuthenticationRepository,
   type OwnProfileRepository,
   type PasswordResetRepository,
@@ -68,6 +77,13 @@ export interface Container {
   readonly confirmPasswordReset: ConfirmPasswordResetHandler;
   readonly getOwnProfile: GetOwnProfileQuery;
   readonly updateOwnProfile: UpdateOwnProfileHandler;
+  readonly listAccounts: ListAccountsQuery;
+  readonly getAccountDetail: GetAccountDetailQuery;
+  readonly createAccount: CreateAccountHandler;
+  readonly updateAccountAdmin: UpdateAccountAdminHandler;
+  readonly suspendAccount: SuspendAccountHandler;
+  readonly activateAccount: ActivateAccountHandler;
+  readonly deactivateAccount: DeactivateAccountHandler;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -134,6 +150,25 @@ export function buildContainer(config: AppConfig): Container {
     clock,
   );
 
+  const accountAdminRepository: AccountAdminRepository = new KyselyAccountAdminRepository(db);
+  const listAccounts = new ListAccountsQuery(accountAdminRepository);
+  const getAccountDetail = new GetAccountDetailQuery(accountAdminRepository, auditRecorder);
+  const createAccount = new CreateAccountHandler(
+    accountAdminRepository,
+    passwordHasher,
+    passwordResetRepository,
+    passwordResetTokenGenerator,
+    policyStore,
+    auditRecorder,
+    (input) => enqueueNotification(db, input),
+    config.webAppOrigin,
+    clock,
+  );
+  const updateAccountAdmin = new UpdateAccountAdminHandler(accountAdminRepository, auditRecorder, clock);
+  const suspendAccount = new SuspendAccountHandler(accountAdminRepository, sessionStore, auditRecorder, clock);
+  const activateAccount = new ActivateAccountHandler(accountAdminRepository, auditRecorder, clock);
+  const deactivateAccount = new DeactivateAccountHandler(accountAdminRepository, sessionStore, auditRecorder, clock);
+
   return {
     config,
     logger,
@@ -157,6 +192,13 @@ export function buildContainer(config: AppConfig): Container {
     confirmPasswordReset,
     getOwnProfile,
     updateOwnProfile,
+    listAccounts,
+    getAccountDetail,
+    createAccount,
+    updateAccountAdmin,
+    suspendAccount,
+    activateAccount,
+    deactivateAccount,
   };
 }
 

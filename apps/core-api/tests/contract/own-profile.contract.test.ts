@@ -246,6 +246,13 @@ async function buildTestApp(): Promise<{ app: FastifyInstance }> {
     confirmPasswordReset: undefined as unknown as Container['confirmPasswordReset'],
     getOwnProfile,
     updateOwnProfile,
+    listAccounts: undefined as unknown as Container['listAccounts'],
+    getAccountDetail: undefined as unknown as Container['getAccountDetail'],
+    createAccount: undefined as unknown as Container['createAccount'],
+    updateAccountAdmin: undefined as unknown as Container['updateAccountAdmin'],
+    suspendAccount: undefined as unknown as Container['suspendAccount'],
+    activateAccount: undefined as unknown as Container['activateAccount'],
+    deactivateAccount: undefined as unknown as Container['deactivateAccount'],
   };
 
   return { app: await buildApp(container) };

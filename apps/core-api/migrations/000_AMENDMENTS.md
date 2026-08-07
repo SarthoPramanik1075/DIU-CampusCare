@@ -91,6 +91,29 @@ changes.
 
 ---
 
+### DDL-04 · no column for `isClinicalStaff` (M1)
+
+**Found by** implementing API §1.3 `POST /api/v1/users` / `PATCH /api/v1/users/{id}`.
+VR-04 requires the `CNP` role to be grantable only to an account "marked as
+clinical staff", and the request/response bodies both carry `isClinicalStaff`
+as a persisted flag an Administrator sets once and a later role grant reads —
+but `identity.user_account` (DATABASE §8) has no such column, and no other
+table is a plausible home for a flag about the account itself.
+
+**Not a contradiction** — an omission, the same shape as DDL-03: a rule the
+document states (VR-04) has no storage defined for the fact it depends on.
+
+**Impact if unfixed.** VR-04 could not be enforced at account-creation or
+role-grant time at all — any account could receive `CNP`, defeating the rule
+NFR-SEC-06 exists to protect (the vault's own clinical roster is the second,
+independent authority; core-api's side of that split needs this flag to be
+real).
+
+**Applied**, in `007_account_admin_extensions.sql`: added
+`identity.user_account.is_clinical_staff boolean NOT NULL DEFAULT false`.
+
+---
+
 ## Raised, not taken
 
 ### RLS-01 · the request policy blocks student intake

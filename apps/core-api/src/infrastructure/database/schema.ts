@@ -75,6 +75,8 @@ export interface UserAccountTable {
   created_at: Generated<Date>;
   updated_at: Generated<Date>;
   version: Generated<number>;
+  /** DDL-04 (`000_AMENDMENTS.md`) — VR-04's precondition for a `CNP` grant. */
+  is_clinical_staff: Generated<boolean>;
 }
 
 export interface UserSessionTable {
@@ -142,6 +144,61 @@ export interface StudentProfileTable {
   programme: string | null;
   is_enrolled: Generated<boolean>;
   version: Generated<number>;
+}
+
+// ---------------------------------------------------------------------
+// schema: scheduling (columns account-admin's deactivate impact check
+// reads for a human-readable summary — not the full M2 table shape)
+// ---------------------------------------------------------------------
+
+export interface DoctorTable {
+  id: string;
+  user_account_id: string | null;
+  full_name: string;
+  location_id: string;
+  is_active: Generated<boolean>;
+}
+
+export interface ClinicSessionTable {
+  id: string;
+  doctor_id: string;
+  location_id: string;
+  session_date: string;
+  starts_at: Date;
+  ends_at: Date;
+  slot_length_minutes: number;
+  walk_in_allocation_pct: number;
+  total_slot_count: number;
+  bookable_slot_count: number;
+  created_by: string;
+}
+
+// ---------------------------------------------------------------------
+// schema: queueing (same scope note as scheduling above)
+// ---------------------------------------------------------------------
+
+export type AppointmentStatus =
+  | 'booked'
+  | 'checked_in'
+  | 'waiting'
+  | 'in_consultation'
+  | 'completed'
+  | 'cancelled'
+  | 'late_cancellation'
+  | 'no_show'
+  | 'expired';
+
+export type AppointmentOrigin = 'booked' | 'walk_in';
+
+export interface AppointmentTable {
+  id: string;
+  appointment_ref: string;
+  clinic_session_id: string;
+  student_id: string | null;
+  serial_number: number;
+  origin: AppointmentOrigin;
+  status: Generated<AppointmentStatus>;
+  created_by: string;
 }
 
 // ---------------------------------------------------------------------
@@ -250,6 +307,9 @@ export interface Database {
   'identity.login_attempt': LoginAttemptTable;
   'identity.password_reset_token': PasswordResetTokenTable;
   'identity.student_profile': StudentProfileTable;
+  'scheduling.doctor': DoctorTable;
+  'scheduling.clinic_session': ClinicSessionTable;
+  'queueing.appointment': AppointmentTable;
   'notification.notification_template': NotificationTemplateTable;
   'notification.notification': NotificationTable;
   'notification.notification_outbox': NotificationOutboxTable;

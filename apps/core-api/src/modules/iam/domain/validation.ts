@@ -54,3 +54,10 @@ export function evaluatePasswordComplexity(password: string): PasswordComplexity
 export function isNonEmptyAfterTrim(value: string): boolean {
   return value.trim().length > 0;
 }
+
+const MINIMUM_REASON_LENGTH = 10;
+
+/** VR-93 (API §0.9) — every mandatory reason field: minimum 10 characters after trimming. */
+export function isValidReason(reason: string): boolean {
+  return reason.trim().length >= MINIMUM_REASON_LENGTH;
+}

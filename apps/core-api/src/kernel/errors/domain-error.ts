@@ -57,18 +57,20 @@ export class ValidationError extends DomainError {
 }
 
 /**
- * 401, 403 or 423 — session invalid, the PDP denied, or (423) the account
- * is temporarily locked out (FR-AUTH-14, API §1.3 `ACCOUNT_LOCKED`). 423
- * was not in ARCHITECTURE §10.1's original taxonomy table — only M1's
- * login handler needed it — but it is the same *kind* of failure as 401/403
- * (the caller may not authenticate right now), not a 409 state conflict or
- * a 422 field error, so it extends this class rather than becoming a sixth
- * taxonomy class for one endpoint.
+ * 401, 403, 404 or 423 — session invalid, the PDP denied, the account is
+ * temporarily locked out (423, FR-AUTH-14, API §1.3 `ACCOUNT_LOCKED`), or
+ * (404) a resource the caller may not even know exists. None of these were
+ * in ARCHITECTURE §10.1's original two-status table — each was added as a
+ * later endpoint needed it — but API §0.4 rule 2 makes 404 the same *kind*
+ * of failure as 403 by its own definition ("a 403 for a resource the caller
+ * may not see is indistinguishable from one that does not exist"), so like
+ * 423 before it, this extends the existing class rather than becoming a
+ * sixth taxonomy class.
  */
 export class AuthorizationError extends DomainError {
   readonly errorClass = 'authorization' as const;
-  readonly httpStatus: 401 | 403 | 423;
-  constructor(init: DomainErrorInit & { readonly httpStatus?: 401 | 403 | 423 }) {
+  readonly httpStatus: 401 | 403 | 404 | 423;
+  constructor(init: DomainErrorInit & { readonly httpStatus?: 401 | 403 | 404 | 423 }) {
     super(init);
     this.httpStatus = init.httpStatus ?? 403;
   }

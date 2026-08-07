@@ -1,14 +1,14 @@
-import type { FastifyInstance, FastifyRequest } from 'fastify';
+import type { FastifyInstance } from 'fastify';
 
 import type {
   AuthorizationRouteConfig,
   PolicyEnforcementHandler,
 } from '../../../../kernel/authz/policy-enforcement-point.js';
-import { AuthorizationError, ValidationError } from '../../../../kernel/errors/domain-error.js';
+import { ValidationError } from '../../../../kernel/errors/domain-error.js';
 import { getCorrelationId } from '../../../../kernel/http/correlation.js';
 import type { GetOwnProfileQuery } from '../../application/queries/get-own-profile.query.js';
 import type { GetSessionQuery } from '../../application/queries/get-session.query.js';
-import { SESSION_COOKIE_NAME } from '../../application/resolve-authenticated-subject.js';
+import { resolveOwnUserId, unauthenticatedError } from '../../application/resolve-own-user-id.js';
 import type { UpdateOwnProfileHandler } from '../../application/update-own-profile.handler.js';
 
 export interface OwnProfileRouteDeps {
@@ -20,23 +20,6 @@ export interface OwnProfileRouteDeps {
 
 /** API §1.2: `email`, `status`, `roles` and `studentRef` are not editable via `PATCH /me`. */
 const NON_EDITABLE_FIELDS = ['email', 'status', 'roles', 'studentRef'] as const;
-
-function unauthenticatedError(): AuthorizationError {
-  return new AuthorizationError({ code: 'UNAUTHENTICATED', message: 'Sign in to continue.', httpStatus: 401 });
-}
-
-/**
- * The PEP's `resolveSubject` only carries roles and account status (what
- * the PDP needs) — the route still needs the caller's own account id, the
- * same way `logout`/`session` in `auth.routes.ts` read it directly from the
- * session rather than threading it through `AuthorizationSubject`.
- */
-async function resolveOwnUserId(request: FastifyRequest, getSession: GetSessionQuery): Promise<string> {
-  const sessionId = request.cookies[SESSION_COOKIE_NAME];
-  const session = sessionId === undefined ? null : await getSession.execute(sessionId);
-  if (session === null) throw unauthenticatedError();
-  return session.userId;
-}
 
 /**
  * API §1.2 `GET/PATCH /api/v1/me`. `own-profile`'s permission-matrix scope

@@ -98,6 +98,13 @@ function buildTestApp(repository: AnnouncementRepository, now: Date): Promise<Fa
     confirmPasswordReset: undefined as unknown as Container['confirmPasswordReset'],
     getOwnProfile: undefined as unknown as Container['getOwnProfile'],
     updateOwnProfile: undefined as unknown as Container['updateOwnProfile'],
+    listAccounts: undefined as unknown as Container['listAccounts'],
+    getAccountDetail: undefined as unknown as Container['getAccountDetail'],
+    createAccount: undefined as unknown as Container['createAccount'],
+    updateAccountAdmin: undefined as unknown as Container['updateAccountAdmin'],
+    suspendAccount: undefined as unknown as Container['suspendAccount'],
+    activateAccount: undefined as unknown as Container['activateAccount'],
+    deactivateAccount: undefined as unknown as Container['deactivateAccount'],
   };
 
   return buildApp(container);

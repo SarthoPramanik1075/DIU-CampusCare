@@ -7,7 +7,7 @@ import { registerCorrelationId } from '../kernel/http/correlation.js';
 import { registerErrorHandling } from '../kernel/http/error-handler.js';
 import { REDACTED_PATHS, REDACTION_CENSOR } from '../kernel/logging/redaction.js';
 import { registerAnnouncementRoutes } from '../modules/config/index.js';
-import { registerAuthRoutes, registerOwnProfileRoutes } from '../modules/iam/index.js';
+import { registerAccountAdminRoutes, registerAuthRoutes, registerOwnProfileRoutes } from '../modules/iam/index.js';
 
 import type { Container } from './container.js';
 
@@ -73,6 +73,18 @@ export async function buildApp(container: Container): Promise<FastifyInstance> {
     getSession: container.getSession,
     getOwnProfile: container.getOwnProfile,
     updateOwnProfile: container.updateOwnProfile,
+  });
+
+  registerAccountAdminRoutes(app, {
+    pep,
+    getSession: container.getSession,
+    listAccounts: container.listAccounts,
+    getAccountDetail: container.getAccountDetail,
+    createAccount: container.createAccount,
+    updateAccountAdmin: container.updateAccountAdmin,
+    suspendAccount: container.suspendAccount,
+    activateAccount: container.activateAccount,
+    deactivateAccount: container.deactivateAccount,
   });
 
   return app;

@@ -1,4 +1,10 @@
 import 'dotenv/config';
+// Side-effect import: registers the `date`-column type parser fix
+// (`client.ts`) before any integration test's queries run. Every
+// integration test imports this module, so this is the one place that
+// guarantees it — each test otherwise builds its own `Pool` directly
+// rather than going through `createDatabase()`.
+import '../../src/infrastructure/database/client.js';
 
 import { randomBytes } from 'node:crypto';
 

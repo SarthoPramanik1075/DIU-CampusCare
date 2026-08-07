@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { evaluatePasswordComplexity, isDiuInstitutionalEmail, isNonEmptyAfterTrim } from './validation.js';
+import { evaluatePasswordComplexity, isDiuInstitutionalEmail, isNonEmptyAfterTrim, isValidReason } from './validation.js';
 
 describe('isDiuInstitutionalEmail — VR-01', () => {
   it('accepts a DIU institutional address', () => {
@@ -70,5 +70,23 @@ describe('isNonEmptyAfterTrim — API §1.2 PATCH /me', () => {
 
   it('rejects whitespace-only input', () => {
     expect(isNonEmptyAfterTrim('   \t\n  ')).toBe(false);
+  });
+});
+
+describe('isValidReason — VR-93', () => {
+  it('accepts a reason of at least 10 characters', () => {
+    expect(isValidReason('Enrolment under review')).toBe(true);
+  });
+
+  it('rejects a reason under 10 characters', () => {
+    expect(isValidReason('Too short')).toBe(false);
+  });
+
+  it('counts length after trimming', () => {
+    expect(isValidReason('   short   ')).toBe(false);
+  });
+
+  it('rejects whitespace-only input regardless of raw length', () => {
+    expect(isValidReason('              ')).toBe(false);
   });
 });
