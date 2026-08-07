@@ -7,6 +7,7 @@ import { registerCorrelationId } from '../kernel/http/correlation.js';
 import { registerErrorHandling } from '../kernel/http/error-handler.js';
 import { REDACTED_PATHS, REDACTION_CENSOR } from '../kernel/logging/redaction.js';
 import { registerAnnouncementRoutes } from '../modules/config/index.js';
+import { registerDashboardRoutes } from '../modules/dashboard/index.js';
 import { registerAccountAdminRoutes, registerAuthRoutes, registerOwnProfileRoutes } from '../modules/iam/index.js';
 
 import type { Container } from './container.js';
@@ -88,6 +89,11 @@ export async function buildApp(container: Container): Promise<FastifyInstance> {
     listRoleCatalogue: container.listRoleCatalogue,
     grantRole: container.grantRole,
     revokeRole: container.revokeRole,
+  });
+
+  registerDashboardRoutes(app, {
+    getSession: container.getSession,
+    getStudentDashboard: container.getStudentDashboard,
   });
 
   return app;

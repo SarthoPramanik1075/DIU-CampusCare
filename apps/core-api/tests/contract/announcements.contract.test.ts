@@ -108,6 +108,7 @@ function buildTestApp(repository: AnnouncementRepository, now: Date): Promise<Fa
     listRoleCatalogue: undefined as unknown as Container['listRoleCatalogue'],
     grantRole: undefined as unknown as Container['grantRole'],
     revokeRole: undefined as unknown as Container['revokeRole'],
+    getStudentDashboard: undefined as unknown as Container['getStudentDashboard'],
   };
 
   return buildApp(container);

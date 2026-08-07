@@ -406,6 +406,7 @@ async function buildTestApp(): Promise<{ app: FastifyInstance; accountAdminRepos
     listRoleCatalogue,
     grantRole,
     revokeRole,
+    getStudentDashboard: undefined as unknown as Container['getStudentDashboard'],
   };
 
   return { app: await buildApp(container), accountAdminRepository };

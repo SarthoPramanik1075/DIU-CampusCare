@@ -13,6 +13,7 @@ import { createLogger } from '../kernel/logging/logger.js';
 import { enqueueNotification } from '../kernel/notifications/enqueue-notification.js';
 import { PolicyStore } from '../kernel/policy/policy-store.js';
 import { KyselyAnnouncementRepository, ListActiveAnnouncementsHandler } from '../modules/config/index.js';
+import { GetStudentDashboardQuery, KyselyDashboardRepository, type DashboardRepository } from '../modules/dashboard/index.js';
 import {
   ActivateAccountHandler,
   ConfirmPasswordResetHandler,
@@ -90,6 +91,7 @@ export interface Container {
   readonly listRoleCatalogue: ListRoleCatalogueQuery;
   readonly grantRole: GrantRoleHandler;
   readonly revokeRole: RevokeRoleHandler;
+  readonly getStudentDashboard: GetStudentDashboardQuery;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -178,6 +180,9 @@ export function buildContainer(config: AppConfig): Container {
   const grantRole = new GrantRoleHandler(accountAdminRepository, auditRecorder);
   const revokeRole = new RevokeRoleHandler(accountAdminRepository, auditRecorder, clock);
 
+  const dashboardRepository: DashboardRepository = new KyselyDashboardRepository(db);
+  const getStudentDashboard = new GetStudentDashboardQuery(ownProfileRepository, dashboardRepository, listActiveAnnouncements, clock);
+
   return {
     config,
     logger,
@@ -211,6 +216,7 @@ export function buildContainer(config: AppConfig): Container {
     listRoleCatalogue,
     grantRole,
     revokeRole,
+    getStudentDashboard,
   };
 }
 

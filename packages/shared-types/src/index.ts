@@ -44,4 +44,4 @@ export {
 
 export type { IsoDateString, IsoDateTimeString, LocalTimeString, Uuid } from './primitives.js';
 
-export { toBstIsoString } from './bst-datetime.js';
+export { bstTimeOfDay, bstWeekday, toBstIsoString } from './bst-datetime.js';

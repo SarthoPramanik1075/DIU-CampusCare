@@ -146,6 +146,37 @@ export interface StudentProfileTable {
   version: Generated<number>;
 }
 
+export interface BookingSuspensionTable {
+  id: string;
+  student_id: string;
+  suspended_until: Date;
+  no_show_count: number;
+  lifted_at: Date | null;
+}
+
+// ---------------------------------------------------------------------
+// schema: pharmacy (columns the dashboard's medicine-store panel reads —
+// not the full M5 table shape)
+// ---------------------------------------------------------------------
+
+export interface StoreHoursTable {
+  id: string;
+  location_id: string;
+  weekday: number;
+  opens_at: string;
+  closes_at: string;
+  updated_by: string;
+}
+
+export interface StoreStatusOverrideTable {
+  id: string;
+  location_id: string;
+  effective_date: string;
+  is_closed: boolean;
+  reason: string;
+  created_by: string;
+}
+
 // ---------------------------------------------------------------------
 // schema: scheduling (columns account-admin's deactivate impact check
 // reads for a human-readable summary — not the full M2 table shape)
@@ -307,9 +338,12 @@ export interface Database {
   'identity.login_attempt': LoginAttemptTable;
   'identity.password_reset_token': PasswordResetTokenTable;
   'identity.student_profile': StudentProfileTable;
+  'identity.booking_suspension': BookingSuspensionTable;
   'scheduling.doctor': DoctorTable;
   'scheduling.clinic_session': ClinicSessionTable;
   'queueing.appointment': AppointmentTable;
+  'pharmacy.store_hours': StoreHoursTable;
+  'pharmacy.store_status_override': StoreStatusOverrideTable;
   'notification.notification_template': NotificationTemplateTable;
   'notification.notification': NotificationTable;
   'notification.notification_outbox': NotificationOutboxTable;

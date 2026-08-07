@@ -46,3 +46,33 @@ export function toBstIsoString(date: Date): IsoDateTimeString {
   };
   return `${get('year')}-${get('month')}-${get('day')}T${get('hour')}:${get('minute')}:${get('second')}+06:00` as IsoDateTimeString;
 }
+
+const BST_WEEKDAY_FORMATTER = new Intl.DateTimeFormat('en-US', { timeZone: 'Asia/Dhaka', weekday: 'short' });
+const BST_WEEKDAY_INDEX: Readonly<Record<string, number>> = { Sun: 0, Mon: 1, Tue: 2, Wed: 3, Thu: 4, Fri: 5, Sat: 6 };
+
+/** Postgres `EXTRACT(DOW ...)` convention (0 = Sunday .. 6 = Saturday), evaluated in Asia/Dhaka — matches `weekday` columns like `pharmacy.store_hours.weekday`. */
+export function bstWeekday(date: Date): number {
+  const short = BST_WEEKDAY_FORMATTER.format(date);
+  const index = BST_WEEKDAY_INDEX[short];
+  if (index === undefined) throw new Error(`Intl.DateTimeFormat produced an unrecognised weekday: "${short}"`);
+  return index;
+}
+
+const BST_TIME_FORMATTER = new Intl.DateTimeFormat('en-US', {
+  timeZone: 'Asia/Dhaka',
+  hourCycle: 'h23',
+  hour: '2-digit',
+  minute: '2-digit',
+  second: '2-digit',
+});
+
+/** `HH:mm:ss` in Asia/Dhaka — comparable against a `time`-typed column like `pharmacy.store_hours.opens_at`. */
+export function bstTimeOfDay(date: Date): string {
+  const parts = new Map<string, string>(BST_TIME_FORMATTER.formatToParts(date).map((part) => [part.type, part.value]));
+  const get = (type: string): string => {
+    const value = parts.get(type);
+    if (value === undefined) throw new Error(`Intl.DateTimeFormat did not produce a "${type}" part.`);
+    return value;
+  };
+  return `${get('hour')}:${get('minute')}:${get('second')}`;
+}
