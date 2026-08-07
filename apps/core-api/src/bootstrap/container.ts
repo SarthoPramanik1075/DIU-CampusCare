@@ -14,17 +14,22 @@ import { enqueueNotification } from '../kernel/notifications/enqueue-notificatio
 import { PolicyStore } from '../kernel/policy/policy-store.js';
 import { KyselyAnnouncementRepository, ListActiveAnnouncementsHandler } from '../modules/config/index.js';
 import {
+  ConfirmPasswordResetHandler,
   createAuthenticatedSubjectResolver,
   GetSessionQuery,
   KyselyAuthenticationRepository,
+  KyselyPasswordResetRepository,
   LoginWithPasswordHandler,
   LogoutHandler,
   OpenIdClientSsoAdapter,
   PasswordHasher,
+  PasswordResetTokenGenerator,
+  RequestPasswordResetHandler,
   SessionIssuer,
   SsoCallbackHandler,
   SsoLoginHandler,
   type AuthenticationRepository,
+  type PasswordResetRepository,
   type SsoClient,
 } from '../modules/iam/index.js';
 
@@ -55,6 +60,8 @@ export interface Container {
   readonly getSession: GetSessionQuery;
   readonly ssoLogin: SsoLoginHandler;
   readonly ssoCallback: SsoCallbackHandler;
+  readonly requestPasswordReset: RequestPasswordResetHandler;
+  readonly confirmPasswordReset: ConfirmPasswordResetHandler;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -91,6 +98,27 @@ export function buildContainer(config: AppConfig): Container {
   const ssoLogin = new SsoLoginHandler(ssoClient);
   const ssoCallback = new SsoCallbackHandler(ssoClient, authenticationRepository, sessionIssuer, auditRecorder);
 
+  const passwordResetRepository: PasswordResetRepository = new KyselyPasswordResetRepository(db);
+  const passwordResetTokenGenerator = new PasswordResetTokenGenerator();
+  const requestPasswordReset = new RequestPasswordResetHandler(
+    authenticationRepository,
+    passwordResetRepository,
+    passwordResetTokenGenerator,
+    policyStore,
+    auditRecorder,
+    (input) => enqueueNotification(db, input),
+    config.webAppOrigin,
+    clock,
+  );
+  const confirmPasswordReset = new ConfirmPasswordResetHandler(
+    passwordResetRepository,
+    passwordResetTokenGenerator,
+    passwordHasher,
+    sessionStore,
+    auditRecorder,
+    clock,
+  );
+
   return {
     config,
     logger,
@@ -110,6 +138,8 @@ export function buildContainer(config: AppConfig): Container {
     getSession,
     ssoLogin,
     ssoCallback,
+    requestPasswordReset,
+    confirmPasswordReset,
   };
 }
 

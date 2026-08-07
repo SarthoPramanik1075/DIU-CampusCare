@@ -25,13 +25,14 @@ describe('seedIamPolicies', () => {
     await scratch.drop();
   });
 
-  it('seeds the four OI-14 defaults with the documented values', async () => {
+  it('seeds the OI-14 defaults, and the reset-link expiry, with the documented values', async () => {
     await seedIamPolicies(store);
 
     await expect(store.getRequiredInteger('auth.session.idleTimeoutMinutes.student')).resolves.toBe(30);
     await expect(store.getRequiredInteger('auth.session.idleTimeoutMinutes.staff')).resolves.toBe(15);
     await expect(store.getRequiredInteger('auth.lockout.maxAttempts')).resolves.toBe(5);
     await expect(store.getRequiredInteger('auth.lockout.durationMinutes')).resolves.toBe(15);
+    await expect(store.getRequiredInteger('auth.passwordReset.expiryMinutes')).resolves.toBe(30);
   });
 
   it('is idempotent — running twice never overwrites an Administrator-changed value', async () => {

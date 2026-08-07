@@ -3,10 +3,12 @@ import type { FastifyInstance } from 'fastify';
 
 import { AuthorizationError, ValidationError } from '../../../../kernel/errors/domain-error.js';
 import { getCorrelationId } from '../../../../kernel/http/correlation.js';
+import type { ConfirmPasswordResetHandler } from '../../application/confirm-password-reset.handler.js';
 import type { LoginWithPasswordHandler } from '../../application/login-with-password.handler.js';
 import type { LogoutHandler } from '../../application/logout.handler.js';
 import type { GetSessionQuery } from '../../application/queries/get-session.query.js';
 import type { SsoLoginHandler } from '../../application/queries/sso-login.query.js';
+import type { RequestPasswordResetHandler } from '../../application/request-password-reset.handler.js';
 import { SESSION_COOKIE_NAME } from '../../application/resolve-authenticated-subject.js';
 import type { SsoCallbackHandler } from '../../application/sso-callback.handler.js';
 import { defaultLandingPath } from '../../domain/default-landing-path.js';
@@ -17,6 +19,8 @@ export interface AuthRouteDeps {
   readonly getSession: GetSessionQuery;
   readonly ssoLogin: SsoLoginHandler;
   readonly ssoCallback: SsoCallbackHandler;
+  readonly requestPasswordReset: RequestPasswordResetHandler;
+  readonly confirmPasswordReset: ConfirmPasswordResetHandler;
   readonly cookieSecure: boolean;
 }
 
@@ -191,5 +195,50 @@ export function registerAuthRoutes(app: FastifyInstance, deps: AuthRouteDeps): v
     });
 
     return reply.redirect(preSession.redirectTo ?? defaultLandingPath(session.roles));
+  });
+
+  app.post('/api/v1/auth/password-reset/request', async (request, reply) => {
+    const body = request.body as { email?: unknown };
+    if (!isNonEmptyString(body.email)) {
+      throw new ValidationError({
+        code: 'VALIDATION_FAILED',
+        message: 'Use your DIU university email address.',
+        fields: [{ field: 'email', rule: 'VR-01', message: 'Required' }],
+      });
+    }
+
+    const result = await deps.requestPasswordReset.execute({
+      email: body.email,
+      correlationId: getCorrelationId(request),
+    });
+    if (!result.ok) throw result.error;
+
+    reply.status(202);
+    return {
+      message: "If that email address has a password account with us, we've sent a reset link. It expires in 30 minutes.",
+    };
+  });
+
+  app.post('/api/v1/auth/password-reset/confirm', async (request) => {
+    const body = request.body as { token?: unknown; newPassword?: unknown };
+    if (!isNonEmptyString(body.token) || !isNonEmptyString(body.newPassword)) {
+      throw new ValidationError({
+        code: 'VALIDATION_FAILED',
+        message: 'Enter the reset token and your new password.',
+        fields: [
+          ...(isNonEmptyString(body.token) ? [] : [{ field: 'token', rule: 'VR-93', message: 'Required' }]),
+          ...(isNonEmptyString(body.newPassword) ? [] : [{ field: 'newPassword', rule: 'VR-02', message: 'Required' }]),
+        ],
+      });
+    }
+
+    const result = await deps.confirmPasswordReset.execute({
+      token: body.token,
+      newPassword: body.newPassword,
+      correlationId: getCorrelationId(request),
+    });
+    if (!result.ok) throw result.error;
+
+    return { message: 'Your password has been changed. Sign in with your new password.' };
   });
 }

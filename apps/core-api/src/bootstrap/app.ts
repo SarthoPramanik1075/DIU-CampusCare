@@ -60,6 +60,8 @@ export async function buildApp(container: Container): Promise<FastifyInstance> {
     getSession: container.getSession,
     ssoLogin: container.ssoLogin,
     ssoCallback: container.ssoCallback,
+    requestPasswordReset: container.requestPasswordReset,
+    confirmPasswordReset: container.confirmPasswordReset,
     // API §0.2: Secure in every real deployment; only relaxed for local
     // http:// development, same distinction NODE_ENV already draws
     // elsewhere in this bootstrap.

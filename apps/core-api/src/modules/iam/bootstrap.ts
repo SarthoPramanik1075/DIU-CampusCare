@@ -52,4 +52,13 @@ export async function seedIamPolicies(policyStore: PolicyStore): Promise<void> {
     maxValue: '60',
     description: 'How long a locked account stays locked (FR-AUTH-14).',
   });
+
+  await policyStore.defineIfAbsent({
+    key: 'auth.passwordReset.expiryMinutes',
+    valueType: 'integer',
+    valueText: '30',
+    minValue: '5',
+    maxValue: '60',
+    description: 'How long a password-reset link stays valid before it must be re-requested (FR-AUTH-08).',
+  });
 }

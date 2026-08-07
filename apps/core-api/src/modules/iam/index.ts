@@ -19,7 +19,9 @@ export {
 } from './domain/validation.js';
 export { defaultLandingPath } from './domain/default-landing-path.js';
 export { PasswordHasher } from './infrastructure/password-hasher.js';
+export { PasswordResetTokenGenerator } from './infrastructure/password-reset-token-generator.js';
 export { KyselyAuthenticationRepository } from './infrastructure/authentication.repository.js';
+export { KyselyPasswordResetRepository } from './infrastructure/password-reset.repository.js';
 export {
   OpenIdClientSsoAdapter,
   type OpenIdClientSsoConfig,
@@ -29,10 +31,17 @@ export type {
   AccountWithCredential,
   AuthenticationRepository,
 } from './application/authentication-repository.js';
+export type {
+  CreateResetTokenInput,
+  PasswordResetRepository,
+  ValidResetToken,
+} from './application/password-reset-repository.js';
+export { ConfirmPasswordResetHandler } from './application/confirm-password-reset.handler.js';
 export { LoginWithPasswordHandler, type LoginSuccess } from './application/login-with-password.handler.js';
 export { LogoutHandler } from './application/logout.handler.js';
 export { GetSessionQuery, type SessionSnapshot } from './application/queries/get-session.query.js';
 export { SsoLoginHandler } from './application/queries/sso-login.query.js';
+export { RequestPasswordResetHandler } from './application/request-password-reset.handler.js';
 export {
   createAuthenticatedSubjectResolver,
   SESSION_COOKIE_NAME,

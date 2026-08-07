@@ -8,17 +8,23 @@ import { PolicyDecisionPoint } from '../../src/kernel/authz/policy-decision-poin
 import { CsrfTokenService } from '../../src/kernel/identity/csrf.js';
 import { resolveAnonymousSubject } from '../../src/kernel/identity/subject-resolver.js';
 import {
+  ConfirmPasswordResetHandler,
   GetSessionQuery,
   LoginWithPasswordHandler,
   LogoutHandler,
   PasswordHasher,
+  PasswordResetTokenGenerator,
+  RequestPasswordResetHandler,
   SessionIssuer,
   SsoCallbackHandler,
   SsoLoginHandler,
   type AccountSummary,
   type AccountWithCredential,
   type AuthenticationRepository,
+  type CreateResetTokenInput,
+  type PasswordResetRepository,
   type SsoClient,
+  type ValidResetToken,
 } from '../../src/modules/iam/index.js';
 import { FixedClock } from '../support/fixed-clock.js';
 
@@ -42,7 +48,15 @@ class InMemoryAuthenticationRepository implements AuthenticationRepository {
   private failedAttempts = 0;
   private lockedUntil: Date | null = null;
 
-  constructor(private readonly account: AccountWithCredential) {}
+  constructor(private account: AccountWithCredential) {}
+
+  // Password reset writes through `PasswordResetRepository`, a distinct
+  // port from this one — in real Postgres they share the same
+  // `identity.local_credential` row, so this fake needs the same wiring for
+  // "reset then log in with the new password" to be provable at this tier.
+  setPasswordHash(passwordHash: string): void {
+    this.account = { ...this.account, passwordHash };
+  }
 
   findAccountWithCredentialByEmail(email: string): Promise<AccountWithCredential | null> {
     if (email.toLowerCase() !== this.account.email.toLowerCase()) return Promise.resolve(null);
@@ -80,7 +94,51 @@ class InMemoryAuthenticationRepository implements AuthenticationRepository {
   }
 }
 
-async function buildTestApp(): Promise<{ app: FastifyInstance; repository: InMemoryAuthenticationRepository }> {
+class InMemoryPasswordResetRepository implements PasswordResetRepository {
+  private tokens = new Map<string, ValidResetToken & { expiresAt: Date; consumedAt: Date | null }>();
+  private nextId = 1;
+  passwordHashesByAccount = new Map<string, string>();
+
+  constructor(private readonly authRepository: InMemoryAuthenticationRepository) {}
+
+  createToken(input: CreateResetTokenInput): Promise<void> {
+    const id = `token-${String(this.nextId++)}`;
+    this.tokens.set(input.tokenHash, { id, userAccountId: input.userAccountId, expiresAt: input.expiresAt, consumedAt: null });
+    return Promise.resolve();
+  }
+
+  findValidToken(tokenHash: string, now: Date): Promise<ValidResetToken | null> {
+    const token = this.tokens.get(tokenHash);
+    if (token?.consumedAt !== null || token.expiresAt.getTime() <= now.getTime()) {
+      return Promise.resolve(null);
+    }
+    return Promise.resolve({ id: token.id, userAccountId: token.userAccountId });
+  }
+
+  consumeToken(tokenId: string, now: Date): Promise<void> {
+    for (const token of this.tokens.values()) {
+      if (token.id === tokenId) token.consumedAt = now;
+    }
+    return Promise.resolve();
+  }
+
+  updatePasswordHash(userAccountId: string, newPasswordHash: string): Promise<void> {
+    this.passwordHashesByAccount.set(userAccountId, newPasswordHash);
+    this.authRepository.setPasswordHash(newPasswordHash);
+    return Promise.resolve();
+  }
+}
+
+interface SentEmail {
+  readonly recipientId: string;
+  readonly payload: Record<string, unknown>;
+}
+
+async function buildTestApp(): Promise<{
+  app: FastifyInstance;
+  repository: InMemoryAuthenticationRepository;
+  sentEmails: SentEmail[];
+}> {
   const passwordHasher = new PasswordHasher();
   const account: AccountWithCredential = {
     id: '0191f5aa-0000-7000-8000-000000000201',
@@ -124,6 +182,7 @@ async function buildTestApp(): Promise<{ app: FastifyInstance; repository: InMem
         'auth.lockout.durationMinutes': 15,
         'auth.session.idleTimeoutMinutes.student': 30,
         'auth.session.idleTimeoutMinutes.staff': 15,
+        'auth.passwordReset.expiryMinutes': 30,
       };
       return Promise.resolve(values[key]!);
     },
@@ -163,6 +222,31 @@ async function buildTestApp(): Promise<{ app: FastifyInstance; repository: InMem
   const ssoLogin = new SsoLoginHandler(unconfiguredSsoClient);
   const ssoCallback = new SsoCallbackHandler(unconfiguredSsoClient, repository, sessionIssuer, auditRecorder);
 
+  const resetRepository = new InMemoryPasswordResetRepository(repository);
+  const tokenGenerator = new PasswordResetTokenGenerator();
+  const sentEmails: SentEmail[] = [];
+  const requestPasswordReset = new RequestPasswordResetHandler(
+    repository,
+    resetRepository,
+    tokenGenerator,
+    policyStore,
+    auditRecorder,
+    (input) => {
+      sentEmails.push({ recipientId: input.recipientId, payload: input.payload ?? {} });
+      return Promise.resolve();
+    },
+    'http://localhost:5173',
+    clock,
+  );
+  const confirmPasswordReset = new ConfirmPasswordResetHandler(
+    resetRepository,
+    tokenGenerator,
+    passwordHasher,
+    sessionStore,
+    auditRecorder,
+    clock,
+  );
+
   const container: Container = {
     config: {
       nodeEnv: 'test',
@@ -192,9 +276,11 @@ async function buildTestApp(): Promise<{ app: FastifyInstance; repository: InMem
     getSession,
     ssoLogin,
     ssoCallback,
+    requestPasswordReset,
+    confirmPasswordReset,
   };
 
-  return { app: await buildApp(container), repository };
+  return { app: await buildApp(container), repository, sentEmails };
 }
 
 describe('Auth routes — contract', () => {
@@ -332,5 +418,144 @@ describe('Auth routes — contract', () => {
 
     expect(response.statusCode).toBe(403);
     expect(response.json<ErrorEnvelopeBody>().error.code).toBe('SSO_STATE_MISMATCH');
+  });
+
+  it('POST /api/v1/auth/password-reset/request — 202 with the uniform message for a real account', async () => {
+    let sentEmails: SentEmail[];
+    ({ app, sentEmails } = await buildTestApp());
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/password-reset/request',
+      payload: { email: 'nusrat@diu.edu.bd' },
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(response.json<{ message: string }>().message).toMatch(/reset link/);
+    expect(sentEmails).toHaveLength(1);
+    expect(sentEmails[0]!.recipientId).toBe('0191f5aa-0000-7000-8000-000000000201');
+    expect(typeof sentEmails[0]!.payload.resetLink).toBe('string');
+  });
+
+  it('POST /api/v1/auth/password-reset/request — identical 202 response for an unknown email, no email sent — API §0.4', async () => {
+    let sentEmails: SentEmail[];
+    ({ app, sentEmails } = await buildTestApp());
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/password-reset/request',
+      payload: { email: 'nobody@diu.edu.bd' },
+    });
+
+    expect(response.statusCode).toBe(202);
+    expect(response.json<{ message: string }>().message).toMatch(/reset link/);
+    expect(sentEmails).toHaveLength(0);
+  });
+
+  it('POST /api/v1/auth/password-reset/request — 422 VALIDATION_FAILED for a non-institutional email', async () => {
+    ({ app } = await buildTestApp());
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/password-reset/request',
+      payload: { email: 'nusrat@gmail.com' },
+    });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json<ErrorEnvelopeBody>().error.code).toBe('VALIDATION_FAILED');
+  });
+
+  it('POST /api/v1/auth/password-reset/confirm — 200 on success, and the new password can log in', async () => {
+    let sentEmails: SentEmail[];
+    ({ app, sentEmails } = await buildTestApp());
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/password-reset/request',
+      payload: { email: 'nusrat@diu.edu.bd' },
+    });
+    const resetLink = sentEmails[0]!.payload.resetLink as string;
+    const token = new URL(resetLink).searchParams.get('token')!;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/password-reset/confirm',
+      payload: { token, newPassword: 'New correct horse battery 2!' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    expect(response.json<{ message: string }>().message).toMatch(/password has been changed/i);
+
+    const loginWithNewPassword = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/login',
+      payload: { email: 'nusrat@diu.edu.bd', password: 'New correct horse battery 2!' },
+    });
+    expect(loginWithNewPassword.statusCode).toBe(200);
+  });
+
+  it('POST /api/v1/auth/password-reset/confirm — 422 RESET_TOKEN_INVALID for a bogus token', async () => {
+    ({ app } = await buildTestApp());
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/password-reset/confirm',
+      payload: { token: 'not-a-real-token', newPassword: 'New correct horse battery 2!' },
+    });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json<ErrorEnvelopeBody>().error.code).toBe('RESET_TOKEN_INVALID');
+  });
+
+  it('POST /api/v1/auth/password-reset/confirm — a consumed token cannot be reused', async () => {
+    let sentEmails: SentEmail[];
+    ({ app, sentEmails } = await buildTestApp());
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/password-reset/request',
+      payload: { email: 'nusrat@diu.edu.bd' },
+    });
+    const resetLink = sentEmails[0]!.payload.resetLink as string;
+    const token = new URL(resetLink).searchParams.get('token')!;
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/password-reset/confirm',
+      payload: { token, newPassword: 'New correct horse battery 2!' },
+    });
+    const secondAttempt = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/password-reset/confirm',
+      payload: { token, newPassword: 'Yet another correct 3!' },
+    });
+
+    expect(secondAttempt.statusCode).toBe(422);
+    expect(secondAttempt.json<ErrorEnvelopeBody>().error.code).toBe('RESET_TOKEN_INVALID');
+  });
+
+  it('POST /api/v1/auth/password-reset/confirm — 422 VALIDATION_FAILED with itemized fields for a weak password', async () => {
+    let sentEmails: SentEmail[];
+    ({ app, sentEmails } = await buildTestApp());
+
+    await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/password-reset/request',
+      payload: { email: 'nusrat@diu.edu.bd' },
+    });
+    const resetLink = sentEmails[0]!.payload.resetLink as string;
+    const token = new URL(resetLink).searchParams.get('token')!;
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/auth/password-reset/confirm',
+      payload: { token, newPassword: 'weak' },
+    });
+
+    expect(response.statusCode).toBe(422);
+    const body = response.json<ErrorEnvelopeBody & { error: { fields?: readonly unknown[] } }>();
+    expect(body.error.code).toBe('VALIDATION_FAILED');
+    expect(Array.isArray(body.error.fields)).toBe(true);
+    expect(body.error.fields!.length).toBeGreaterThan(0);
   });
 });
