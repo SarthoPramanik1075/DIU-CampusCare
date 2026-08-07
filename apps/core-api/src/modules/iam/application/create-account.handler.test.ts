@@ -35,6 +35,9 @@ function buildHandler(overrides: { readonly repository?: Partial<AccountAdminRep
     updateAccountAdmin: vi.fn(),
     transitionStatus: vi.fn(),
     findActiveAppointmentsForStudent: vi.fn(),
+    listRoleCatalogue: vi.fn(),
+    grantRole: vi.fn(),
+    revokeRole: vi.fn(),
     ...overrides.repository,
   };
 

@@ -31,6 +31,9 @@ function buildHandler(overrides: { readonly repository?: Partial<AccountAdminRep
     updateAccountAdmin: vi.fn().mockResolvedValue({ outcome: 'updated', account: { ...ACCOUNT, fullName: 'Dr. M. Rahman', version: 3 } }),
     transitionStatus: vi.fn(),
     findActiveAppointmentsForStudent: vi.fn(),
+    listRoleCatalogue: vi.fn(),
+    grantRole: vi.fn(),
+    revokeRole: vi.fn(),
     ...overrides.repository,
   };
   const auditRecorder = { recordChange: vi.fn().mockResolvedValue(undefined) } as unknown as AuditRecorder;

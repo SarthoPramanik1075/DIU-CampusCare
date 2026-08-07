@@ -33,6 +33,9 @@ function buildHandler(overrides: { readonly repository?: Partial<AccountAdminRep
     updateAccountAdmin: vi.fn(),
     transitionStatus: vi.fn().mockResolvedValue({ outcome: 'transitioned', account: { ...ACTIVE_ACCOUNT, status: 'suspended', version: 5 } }),
     findActiveAppointmentsForStudent: vi.fn(),
+    listRoleCatalogue: vi.fn(),
+    grantRole: vi.fn(),
+    revokeRole: vi.fn(),
     ...overrides.repository,
   };
   const sessionStore = { revokeAllForUser: vi.fn().mockResolvedValue(undefined) } as unknown as SessionStore;

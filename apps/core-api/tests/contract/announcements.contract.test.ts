@@ -105,6 +105,9 @@ function buildTestApp(repository: AnnouncementRepository, now: Date): Promise<Fa
     suspendAccount: undefined as unknown as Container['suspendAccount'],
     activateAccount: undefined as unknown as Container['activateAccount'],
     deactivateAccount: undefined as unknown as Container['deactivateAccount'],
+    listRoleCatalogue: undefined as unknown as Container['listRoleCatalogue'],
+    grantRole: undefined as unknown as Container['grantRole'],
+    revokeRole: undefined as unknown as Container['revokeRole'],
   };
 
   return buildApp(container);

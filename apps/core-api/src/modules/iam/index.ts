@@ -12,6 +12,7 @@ export {
   type AccountStatus,
   type UserAccount,
 } from './domain/user-account.js';
+export { isRoleAssignableByAdmin, roleRequiresClinicalStaff } from './domain/role.js';
 export {
   evaluatePasswordComplexity,
   isDiuInstitutionalEmail,
@@ -54,6 +55,11 @@ export type {
   ActiveAppointmentSummary,
   CreateAccountInput,
   CreateAccountResult,
+  GrantRoleInput,
+  GrantRoleOutcome,
+  RevokeRoleInput,
+  RevokeRoleOutcome,
+  RoleCatalogueEntry,
   RoleGrant,
   TransitionStatusInput,
   TransitionStatusOutcome,
@@ -64,14 +70,17 @@ export { ActivateAccountHandler } from './application/activate-account.handler.j
 export { ConfirmPasswordResetHandler } from './application/confirm-password-reset.handler.js';
 export { CreateAccountHandler } from './application/create-account.handler.js';
 export { DeactivateAccountHandler } from './application/deactivate-account.handler.js';
+export { GrantRoleHandler } from './application/grant-role.handler.js';
 export { LoginWithPasswordHandler, type LoginSuccess } from './application/login-with-password.handler.js';
 export { LogoutHandler } from './application/logout.handler.js';
 export { GetAccountDetailQuery } from './application/queries/get-account-detail.query.js';
 export { GetOwnProfileQuery, type OwnProfile } from './application/queries/get-own-profile.query.js';
 export { GetSessionQuery, type SessionSnapshot } from './application/queries/get-session.query.js';
 export { ListAccountsQuery } from './application/queries/list-accounts.query.js';
+export { ListRoleCatalogueQuery } from './application/queries/list-role-catalogue.query.js';
 export { SsoLoginHandler } from './application/queries/sso-login.query.js';
 export { RequestPasswordResetHandler } from './application/request-password-reset.handler.js';
+export { RevokeRoleHandler } from './application/revoke-role.handler.js';
 export { SuspendAccountHandler } from './application/suspend-account.handler.js';
 export { UpdateAccountAdminHandler } from './application/update-account-admin.handler.js';
 export { UpdateOwnProfileHandler } from './application/update-own-profile.handler.js';

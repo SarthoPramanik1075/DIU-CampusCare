@@ -7,14 +7,17 @@ import type {
 } from '../../../../kernel/authz/policy-enforcement-point.js';
 import { ValidationError } from '../../../../kernel/errors/domain-error.js';
 import { getCorrelationId } from '../../../../kernel/http/correlation.js';
-import type { AccountDetail, AccountListItem } from '../../application/account-admin-repository.js';
+import type { AccountDetail, AccountListItem, RoleCatalogueEntry } from '../../application/account-admin-repository.js';
 import type { ActivateAccountHandler } from '../../application/activate-account.handler.js';
 import type { CreateAccountHandler } from '../../application/create-account.handler.js';
 import type { DeactivateAccountHandler } from '../../application/deactivate-account.handler.js';
+import type { GrantRoleHandler } from '../../application/grant-role.handler.js';
 import type { GetAccountDetailQuery } from '../../application/queries/get-account-detail.query.js';
 import type { GetSessionQuery } from '../../application/queries/get-session.query.js';
 import type { ListAccountsQuery } from '../../application/queries/list-accounts.query.js';
+import type { ListRoleCatalogueQuery } from '../../application/queries/list-role-catalogue.query.js';
 import { resolveOwnUserId } from '../../application/resolve-own-user-id.js';
+import type { RevokeRoleHandler } from '../../application/revoke-role.handler.js';
 import type { SuspendAccountHandler } from '../../application/suspend-account.handler.js';
 import { accountNotFoundError, type UpdateAccountAdminHandler } from '../../application/update-account-admin.handler.js';
 
@@ -28,6 +31,9 @@ export interface AccountAdminRouteDeps {
   readonly suspendAccount: SuspendAccountHandler;
   readonly activateAccount: ActivateAccountHandler;
   readonly deactivateAccount: DeactivateAccountHandler;
+  readonly listRoleCatalogue: ListRoleCatalogueQuery;
+  readonly grantRole: GrantRoleHandler;
+  readonly revokeRole: RevokeRoleHandler;
 }
 
 /** API §1.3: `status` and `roles` change only through the lifecycle/role endpoints. */
@@ -77,8 +83,27 @@ function accountDetailDto(account: AccountDetail) {
   };
 }
 
-/** API §1.3 — all `Session + Role(ADM)`, enforced by the PEP against the `user-accounts-and-roles` resource (`scope: 'any'`, no ownership evaluator needed). */
+function roleCatalogueEntryDto(entry: RoleCatalogueEntry) {
+  return {
+    code: entry.code,
+    name: entry.name,
+    assignableByAdmin: entry.assignableByAdmin,
+    requiresClinicalStaff: entry.requiresClinicalStaff,
+  };
+}
+
+/** API §1.3/§1.4 — all `Session + Role(ADM)`, enforced by the PEP against the `user-accounts-and-roles` resource (`scope: 'any'`, no ownership evaluator needed). */
 export function registerAccountAdminRoutes(app: FastifyInstance, deps: AccountAdminRouteDeps): void {
+  app.get(
+    '/api/v1/roles',
+    { preHandler: deps.pep({ resource: 'user-accounts-and-roles', action: 'read' }) },
+    async () => {
+      const items = await deps.listRoleCatalogue.execute();
+      return { items: items.map(roleCatalogueEntryDto) };
+    },
+  );
+
+
   app.get(
     '/api/v1/users',
     { preHandler: deps.pep({ resource: 'user-accounts-and-roles', action: 'read' }) },
@@ -255,6 +280,76 @@ export function registerAccountAdminRoutes(app: FastifyInstance, deps: AccountAd
       });
       if (!result.ok) throw result.error;
       return result.value;
+    },
+  );
+
+  app.post(
+    '/api/v1/users/:id/roles',
+    { preHandler: deps.pep({ resource: 'user-accounts-and-roles', action: 'update' }) },
+    async (request, reply) => {
+      const { id } = request.params as { id: string };
+      const actorId = await resolveOwnUserId(request, deps.getSession);
+      const body = request.body as { roleCode?: unknown; reason?: unknown };
+
+      if (!isRoleCode(body.roleCode) || body.roleCode === 'ANON' || !isNonEmptyString(body.reason)) {
+        throw new ValidationError({
+          code: 'VALIDATION_FAILED',
+          message: 'Check the role code and reason and try again.',
+          fields: [
+            ...(isRoleCode(body.roleCode) && body.roleCode !== 'ANON'
+              ? []
+              : [{ field: 'roleCode', rule: 'VALIDATION_FAILED', message: 'Must be a valid role code' }]),
+            ...(isNonEmptyString(body.reason) ? [] : [{ field: 'reason', rule: 'VR-93', message: 'Required' }]),
+          ],
+        });
+      }
+
+      const result = await deps.grantRole.execute({
+        userId: id,
+        roleCode: body.roleCode,
+        reason: body.reason,
+        actorId,
+        correlationId: getCorrelationId(request),
+      });
+      if (!result.ok) throw result.error;
+
+      reply.status(200);
+      return accountDetailDto(result.value);
+    },
+  );
+
+  app.delete(
+    '/api/v1/users/:id/roles/:roleCode',
+    { preHandler: deps.pep({ resource: 'user-accounts-and-roles', action: 'update' }) },
+    async (request) => {
+      const { id, roleCode } = request.params as { id: string; roleCode: string };
+      const actorId = await resolveOwnUserId(request, deps.getSession);
+      const body = request.body as { reason?: unknown };
+
+      if (!isRoleCode(roleCode) || roleCode === 'ANON') {
+        throw new ValidationError({
+          code: 'VALIDATION_FAILED',
+          message: 'That is not a valid role code.',
+          fields: [{ field: 'roleCode', rule: 'VALIDATION_FAILED', message: 'Must be a valid role code' }],
+        });
+      }
+      if (!isNonEmptyString(body.reason)) {
+        throw new ValidationError({
+          code: 'VALIDATION_FAILED',
+          message: 'Enter a reason of at least 10 characters.',
+          fields: [{ field: 'reason', rule: 'VR-93', message: 'Required' }],
+        });
+      }
+
+      const result = await deps.revokeRole.execute({
+        userId: id,
+        roleCode,
+        reason: body.reason,
+        actorId,
+        correlationId: getCorrelationId(request),
+      });
+      if (!result.ok) throw result.error;
+      return accountDetailDto(result.value);
     },
   );
 }

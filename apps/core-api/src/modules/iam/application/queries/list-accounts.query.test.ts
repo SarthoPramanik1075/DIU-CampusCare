@@ -15,6 +15,9 @@ function buildQuery(overrides: { readonly repository?: Partial<AccountAdminRepos
     updateAccountAdmin: vi.fn(),
     transitionStatus: vi.fn(),
     findActiveAppointmentsForStudent: vi.fn(),
+    listRoleCatalogue: vi.fn(),
+    grantRole: vi.fn(),
+    revokeRole: vi.fn(),
     ...overrides.repository,
   };
   return { query: new ListAccountsQuery(repository), repository };

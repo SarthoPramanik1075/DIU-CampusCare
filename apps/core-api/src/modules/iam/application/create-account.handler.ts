@@ -14,6 +14,7 @@ import type { PasswordResetTokenGenerator } from '../infrastructure/password-res
 
 import type { AccountAdminRepository, AccountDetail } from './account-admin-repository.js';
 import type { PasswordResetRepository } from './password-reset-repository.js';
+import { roleNotAssignableError } from './role-errors.js';
 
 export interface CreateAccountCommandInput {
   readonly email: string;
@@ -24,14 +25,6 @@ export interface CreateAccountCommandInput {
   readonly locationId: string | null;
   readonly createdBy: string;
   readonly correlationId: string;
-}
-
-function roleNotAssignableError(reason: string): ValidationError {
-  return new ValidationError({
-    code: 'ROLE_NOT_ASSIGNABLE',
-    message: 'The Counseling Professional role can only be given to an account marked as clinical staff.',
-    fields: [{ field: 'roles', rule: 'VR-04', message: reason }],
-  });
 }
 
 /**
@@ -78,6 +71,7 @@ export class CreateAccountHandler {
     if (input.roles.length === 0 || input.roles.includes('STU')) {
       return err(
         roleNotAssignableError(
+          'roles',
           input.roles.includes('STU') ? 'Student accounts are provisioned by SSO, not this endpoint' : 'At least one role is required',
         ),
       );
@@ -91,7 +85,7 @@ export class CreateAccountHandler {
         reason: 'ROLE_NOT_ASSIGNABLE',
         correlationId: input.correlationId,
       });
-      return err(roleNotAssignableError('CNP requires isClinicalStaff'));
+      return err(roleNotAssignableError('roles', 'CNP requires isClinicalStaff'));
     }
 
     if (await this.repository.isEmailRegistered(input.email)) {

@@ -103,6 +103,38 @@ export type TransitionStatusOutcome =
   | { readonly outcome: 'stale' }
   | { readonly outcome: 'not_found' };
 
+export interface RoleCatalogueEntry {
+  readonly code: AuthenticatedRoleCode;
+  readonly name: string;
+  readonly assignableByAdmin: boolean;
+  readonly requiresClinicalStaff: boolean;
+}
+
+export interface GrantRoleInput {
+  readonly userId: string;
+  readonly roleCode: AuthenticatedRoleCode;
+  readonly grantedBy: string;
+}
+
+export type GrantRoleOutcome =
+  | { readonly outcome: 'granted'; readonly account: AccountDetail }
+  /** UQ-01 (`000_AMENDMENTS.md`) also surfaces here — see `KyselyAccountAdminRepository.grantRole`. */
+  | { readonly outcome: 'already_held' }
+  | { readonly outcome: 'not_found' };
+
+export interface RevokeRoleInput {
+  readonly userId: string;
+  readonly roleCode: AuthenticatedRoleCode;
+  readonly now: Date;
+}
+
+export type RevokeRoleOutcome =
+  | { readonly outcome: 'revoked'; readonly account: AccountDetail }
+  | { readonly outcome: 'not_held' }
+  | { readonly outcome: 'not_found' }
+  /** API §1.4: would leave the system with zero active Administrators. */
+  | { readonly outcome: 'would_remove_last_admin' };
+
 /**
  * Port for API §1.3's account-administration console — a distinct slice of
  * `identity` from `OwnProfileRepository` (a caller's own record) and
@@ -125,4 +157,8 @@ export interface AccountAdminRepository {
    * returning rows the day M2 lands, with no code change here.
    */
   findActiveAppointmentsForStudent(userId: string): Promise<readonly ActiveAppointmentSummary[]>;
+  /** API §1.4 `GET /roles` — the account-console role catalogue (SRS §3.5.1). */
+  listRoleCatalogue(): Promise<readonly RoleCatalogueEntry[]>;
+  grantRole(input: GrantRoleInput): Promise<GrantRoleOutcome>;
+  revokeRole(input: RevokeRoleInput): Promise<RevokeRoleOutcome>;
 }

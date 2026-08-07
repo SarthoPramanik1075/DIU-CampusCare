@@ -116,6 +116,37 @@ real).
 
 ## Raised, not taken
 
+### UQ-01 · `uq_user_role` blocks re-granting a revoked role
+
+**Found by** implementing API §1.4 `POST /users/{id}/roles`. DATABASE §8
+defines `identity.user_role`'s uniqueness as
+`CONSTRAINT uq_user_role UNIQUE (user_account_id, role_id)` — a plain
+constraint over the pair, not scoped to active rows. P4 ("revoke, never
+delete" — `revoked_at`, the row stays) implies an account should be able to
+hold a role, lose it, and receive it again later (someone leaves MCS
+reception and rejoins six months on); API §1.4's own `ROLE_ALREADY_HELD`
+condition is explicitly "**active** grant exists," implying a revoked one
+should not block a fresh grant.
+
+As written, it does: a second `INSERT` for the same `(user_account_id,
+role_id)` pair violates `uq_user_role` regardless of whether the earlier
+row is revoked, because the constraint has no `WHERE revoked_at IS NULL`
+clause to scope it to active rows only.
+
+**Not taken** because no endpoint built in M1 exercises a regrant —
+`grantRole` only needs to run once per pair here — and the fix (a partial
+unique index) is a schema change with no way to verify it doesn't affect
+some later milestone's assumption about this table without that milestone's
+own context. `KyselyAccountAdminRepository.grantRole` catches the
+`unique_violation` this would raise and reports `ROLE_ALREADY_HELD` rather
+than a raw 500, which is honest about the *symptom* (this exact grant can't
+be created) even though the *reason* differs from the documented condition
+in the revoked-row case. **Must be resolved before any milestone needs
+regrant to work** — replace the constraint with
+`CREATE UNIQUE INDEX ... ON identity.user_role (user_account_id, role_id) WHERE revoked_at IS NULL`.
+
+---
+
 ### RLS-01 · the request policy blocks student intake
 
 **Where** `apps/counseling-api/migrations/003_grants_rls.sql`, applied

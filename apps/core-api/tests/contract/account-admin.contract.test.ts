@@ -1,3 +1,4 @@
+import { ROLE_NAMES, type AuthenticatedRoleCode } from '@campuscare/shared-types';
 import type { FastifyInstance } from 'fastify';
 import { afterEach, describe, expect, it } from 'vitest';
 
@@ -13,11 +14,16 @@ import {
   DeactivateAccountHandler,
   GetAccountDetailQuery,
   GetSessionQuery,
+  GrantRoleHandler,
+  isRoleAssignableByAdmin,
   ListAccountsQuery,
+  ListRoleCatalogueQuery,
   LoginWithPasswordHandler,
   LogoutHandler,
   PasswordHasher,
   PasswordResetTokenGenerator,
+  RevokeRoleHandler,
+  roleRequiresClinicalStaff,
   SessionIssuer,
   SsoCallbackHandler,
   SsoLoginHandler,
@@ -32,6 +38,11 @@ import {
   type AuthenticationRepository,
   type CreateAccountInput,
   type CreateAccountResult,
+  type GrantRoleInput,
+  type GrantRoleOutcome,
+  type RevokeRoleInput,
+  type RevokeRoleOutcome,
+  type RoleCatalogueEntry,
   type SsoClient,
   type TransitionStatusInput,
   type TransitionStatusOutcome,
@@ -173,6 +184,46 @@ class InMemoryAccountAdminRepository implements AccountAdminRepository {
   findActiveAppointmentsForStudent(): Promise<readonly []> {
     return Promise.resolve([]);
   }
+
+  listRoleCatalogue(): Promise<readonly RoleCatalogueEntry[]> {
+    const codes: readonly AuthenticatedRoleCode[] = ['STU', 'DOC', 'MCS', 'STO', 'CNP', 'ADM'];
+    return Promise.resolve(
+      codes.map((code) => ({
+        code,
+        name: ROLE_NAMES[code],
+        assignableByAdmin: isRoleAssignableByAdmin(code),
+        requiresClinicalStaff: roleRequiresClinicalStaff(code),
+      })),
+    );
+  }
+
+  grantRole(input: GrantRoleInput): Promise<GrantRoleOutcome> {
+    const account = this.accounts.get(input.userId);
+    if (account === undefined) return Promise.resolve({ outcome: 'not_found' });
+    if (account.roles.some((role) => role.code === input.roleCode)) return Promise.resolve({ outcome: 'already_held' });
+
+    const updated: AccountDetail = {
+      ...account,
+      roles: [...account.roles, { code: input.roleCode, grantedBy: input.grantedBy, grantedAt: NOW }],
+    };
+    this.accounts.set(input.userId, updated);
+    return Promise.resolve({ outcome: 'granted', account: updated });
+  }
+
+  revokeRole(input: RevokeRoleInput): Promise<RevokeRoleOutcome> {
+    const account = this.accounts.get(input.userId);
+    if (account === undefined) return Promise.resolve({ outcome: 'not_found' });
+    if (!account.roles.some((role) => role.code === input.roleCode)) return Promise.resolve({ outcome: 'not_held' });
+
+    if (input.roleCode === 'ADM') {
+      const activeAdminCount = [...this.accounts.values()].filter((a) => a.roles.some((role) => role.code === 'ADM')).length;
+      if (activeAdminCount <= 1) return Promise.resolve({ outcome: 'would_remove_last_admin' });
+    }
+
+    const updated: AccountDetail = { ...account, roles: account.roles.filter((role) => role.code !== input.roleCode) };
+    this.accounts.set(input.userId, updated);
+    return Promise.resolve({ outcome: 'revoked', account: updated });
+  }
 }
 
 async function buildTestApp(): Promise<{ app: FastifyInstance; accountAdminRepository: InMemoryAccountAdminRepository }> {
@@ -266,6 +317,23 @@ async function buildTestApp(): Promise<{ app: FastifyInstance; accountAdminRepos
     isClinicalStaff: false,
     version: 1,
   });
+  // The logged-in administrator's own account, in this repository too (it
+  // is otherwise only known to InMemoryAuthenticationRepository, for
+  // login) — needed to exercise LAST_ADMIN_ROLE, which is a real,
+  // system-wide count over identity.user_role, not specific to "this" account.
+  accountAdminRepository.seed({
+    userId: ADMIN_ID,
+    email: 'admin@diu.edu.bd',
+    fullName: 'DIU IT Admin',
+    status: 'active',
+    authMethod: 'local',
+    roles: [{ code: 'ADM', grantedBy: ADMIN_ID, grantedAt: NOW }],
+    studentProfile: null,
+    lockedUntil: null,
+    lastLoginAt: null,
+    isClinicalStaff: false,
+    version: 1,
+  });
 
   const listAccounts = new ListAccountsQuery(accountAdminRepository);
   const getAccountDetail = new GetAccountDetailQuery(accountAdminRepository, auditRecorder);
@@ -291,6 +359,9 @@ async function buildTestApp(): Promise<{ app: FastifyInstance; accountAdminRepos
   const suspendAccount = new SuspendAccountHandler(accountAdminRepository, sessionStore, auditRecorder, clock);
   const activateAccount = new ActivateAccountHandler(accountAdminRepository, auditRecorder, clock);
   const deactivateAccount = new DeactivateAccountHandler(accountAdminRepository, sessionStore, auditRecorder, clock);
+  const listRoleCatalogue = new ListRoleCatalogueQuery(accountAdminRepository);
+  const grantRole = new GrantRoleHandler(accountAdminRepository, auditRecorder);
+  const revokeRole = new RevokeRoleHandler(accountAdminRepository, auditRecorder, clock);
 
   const container: Container = {
     config: {
@@ -332,6 +403,9 @@ async function buildTestApp(): Promise<{ app: FastifyInstance; accountAdminRepos
     suspendAccount,
     activateAccount,
     deactivateAccount,
+    listRoleCatalogue,
+    grantRole,
+    revokeRole,
   };
 
   return { app: await buildApp(container), accountAdminRepository };
@@ -577,5 +651,115 @@ describe('Account administration routes — contract', () => {
     });
     expect(response.statusCode).toBe(409);
     expect(response.json<ErrorEnvelopeBody>().error.code).toBe('CONFLICT_STALE_VERSION');
+  });
+
+  it('GET /api/v1/roles — 200 with the full catalogue, STU not assignable, CNP requiring clinical staff', async () => {
+    ({ app } = await buildTestApp());
+    const cookie = await loginAsAdmin(app);
+
+    const response = await app.inject({ method: 'GET', url: '/api/v1/roles', headers: { cookie } });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json<{ items: readonly { code: string; assignableByAdmin: boolean; requiresClinicalStaff: boolean }[] }>();
+    expect(body.items.map((i) => i.code).sort()).toEqual(['ADM', 'CNP', 'DOC', 'MCS', 'STO', 'STU'].sort());
+    expect(body.items.find((i) => i.code === 'STU')).toMatchObject({ assignableByAdmin: false });
+    expect(body.items.find((i) => i.code === 'CNP')).toMatchObject({ assignableByAdmin: true, requiresClinicalStaff: true });
+  });
+
+  it('POST /api/v1/users/{id}/roles — 200 grants a role and it appears in roles[]', async () => {
+    ({ app } = await buildTestApp());
+    const cookie = await loginAsAdmin(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/users/target-1/roles',
+      headers: { cookie },
+      payload: { roleCode: 'MCS', reason: 'Joined medical centre reception on 1 August' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json<{ roles: readonly { code: string }[] }>();
+    expect(body.roles.map((r) => r.code)).toContain('MCS');
+  });
+
+  it('POST /api/v1/users/{id}/roles — 422 ROLE_NOT_ASSIGNABLE for STU', async () => {
+    ({ app } = await buildTestApp());
+    const cookie = await loginAsAdmin(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/users/target-1/roles',
+      headers: { cookie },
+      payload: { roleCode: 'STU', reason: 'Joined medical centre reception on 1 August' },
+    });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json<ErrorEnvelopeBody>().error.code).toBe('ROLE_NOT_ASSIGNABLE');
+  });
+
+  it('POST /api/v1/users/{id}/roles — 409 ROLE_ALREADY_HELD for a role already granted', async () => {
+    ({ app } = await buildTestApp());
+    const cookie = await loginAsAdmin(app);
+
+    const response = await app.inject({
+      method: 'POST',
+      url: '/api/v1/users/target-1/roles',
+      headers: { cookie },
+      payload: { roleCode: 'STU', reason: 'Already a student, testing duplicate grant' },
+    });
+
+    // target-1 was seeded with STU already — grantRole rejects STU up front
+    // (ROLE_NOT_ASSIGNABLE) before ever reaching ROLE_ALREADY_HELD, so this
+    // proves the STU gate wins; the already-held path is covered at the
+    // unit tier (grant-role.handler.test.ts), where STU can be bypassed.
+    expect(response.statusCode).toBe(422);
+    expect(response.json<ErrorEnvelopeBody>().error.code).toBe('ROLE_NOT_ASSIGNABLE');
+  });
+
+  it('DELETE /api/v1/users/{id}/roles/{roleCode} — 200 revokes a role', async () => {
+    ({ app } = await buildTestApp());
+    const cookie = await loginAsAdmin(app);
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/api/v1/users/target-1/roles/STU',
+      headers: { cookie },
+      payload: { reason: 'Transferred out of the medical centre' },
+    });
+
+    expect(response.statusCode).toBe(200);
+    const body = response.json<{ roles: readonly { code: string }[] }>();
+    expect(body.roles.map((r) => r.code)).not.toContain('STU');
+  });
+
+  it('DELETE /api/v1/users/{id}/roles/{roleCode} — 404 ROLE_NOT_HELD when the account never had it', async () => {
+    ({ app } = await buildTestApp());
+    const cookie = await loginAsAdmin(app);
+
+    const response = await app.inject({
+      method: 'DELETE',
+      url: '/api/v1/users/target-1/roles/CNP',
+      headers: { cookie },
+      payload: { reason: 'Testing a role never granted' },
+    });
+
+    expect(response.statusCode).toBe(404);
+    expect(response.json<ErrorEnvelopeBody>().error.code).toBe('ROLE_NOT_HELD');
+  });
+
+  it('DELETE /api/v1/users/{id}/roles/{roleCode} — 409 LAST_ADMIN_ROLE protects the sole administrator', async () => {
+    ({ app } = await buildTestApp());
+    const cookie = await loginAsAdmin(app);
+
+    // ADMIN_ID is the only ADM in this fake repository's seed data.
+    const response = await app.inject({
+      method: 'DELETE',
+      url: `/api/v1/users/${ADMIN_ID}/roles/ADM`,
+      headers: { cookie },
+      payload: { reason: "Attempting to remove the system's only administrator" },
+    });
+
+    expect(response.statusCode).toBe(409);
+    expect(response.json<ErrorEnvelopeBody>().error.code).toBe('LAST_ADMIN_ROLE');
   });
 });

@@ -85,6 +85,9 @@ export async function buildApp(container: Container): Promise<FastifyInstance> {
     suspendAccount: container.suspendAccount,
     activateAccount: container.activateAccount,
     deactivateAccount: container.deactivateAccount,
+    listRoleCatalogue: container.listRoleCatalogue,
+    grantRole: container.grantRole,
+    revokeRole: container.revokeRole,
   });
 
   return app;

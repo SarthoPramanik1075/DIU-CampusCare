@@ -12,11 +12,17 @@ import type {
   ActiveAppointmentSummary,
   CreateAccountInput,
   CreateAccountResult,
+  GrantRoleInput,
+  GrantRoleOutcome,
+  RevokeRoleInput,
+  RevokeRoleOutcome,
+  RoleCatalogueEntry,
   TransitionStatusInput,
   TransitionStatusOutcome,
   UpdateAccountAdminInput,
   UpdateAccountAdminOutcome,
 } from '../application/account-admin-repository.js';
+import { isRoleAssignableByAdmin, roleRequiresClinicalStaff } from '../domain/role.js';
 
 /** Postgres `unique_violation` — the only realistic race this insert can hit (the citext `email` column). */
 const PG_UNIQUE_VIOLATION = '23505';
@@ -286,5 +292,100 @@ export class KyselyAccountAdminRepository implements AccountAdminRepository {
       .execute();
 
     return rows.map((row) => ({ appointmentRef: row.appointment_ref, sessionDate: row.session_date, doctorName: row.doctor_name }));
+  }
+
+  async listRoleCatalogue(): Promise<readonly RoleCatalogueEntry[]> {
+    const rows = await this.db.selectFrom('identity.role').select(['code', 'name']).orderBy('code').execute();
+    return rows.map((row) => ({
+      code: row.code,
+      name: row.name,
+      assignableByAdmin: isRoleAssignableByAdmin(row.code),
+      requiresClinicalStaff: roleRequiresClinicalStaff(row.code),
+    }));
+  }
+
+  async grantRole(input: GrantRoleInput): Promise<GrantRoleOutcome> {
+    const account = await this.db.selectFrom('identity.user_account').select('id').where('id', '=', input.userId).executeTakeFirst();
+    if (account === undefined) return { outcome: 'not_found' };
+
+    const roleRow = await this.db
+      .selectFrom('identity.role')
+      .select('id')
+      .where('code', '=', input.roleCode)
+      .executeTakeFirstOrThrow(() => new Error(`identity.role has no ${input.roleCode} row — has 006_iam_extensions.sql been migrated?`));
+
+    const existingActiveGrant = await this.db
+      .selectFrom('identity.user_role')
+      .select('id')
+      .where('user_account_id', '=', input.userId)
+      .where('role_id', '=', roleRow.id)
+      .where('revoked_at', 'is', null)
+      .executeTakeFirst();
+    if (existingActiveGrant !== undefined) return { outcome: 'already_held' };
+
+    try {
+      await this.db
+        .insertInto('identity.user_role')
+        .values({ id: uuidv7(), user_account_id: input.userId, role_id: roleRow.id, granted_by: input.grantedBy })
+        .execute();
+    } catch (error) {
+      // UQ-01 (`000_AMENDMENTS.md`): `uq_user_role` has no `WHERE revoked_at
+      // IS NULL` scoping, so re-granting a role this account held and lost
+      // hits the same unique constraint as a genuine duplicate. Reporting
+      // it as `already_held` is honest about the symptom even though the
+      // underlying reason differs in that revoked-row case.
+      if (isUniqueViolation(error)) return { outcome: 'already_held' };
+      throw error;
+    }
+
+    const updated = await this.findAccountDetailById(input.userId);
+    if (updated === null) throw new Error(`identity.user_account ${input.userId} vanished immediately after its own role grant`);
+    return { outcome: 'granted', account: updated };
+  }
+
+  async revokeRole(input: RevokeRoleInput): Promise<RevokeRoleOutcome> {
+    const outcome = await this.db.transaction().execute(async (trx) => {
+      const grant = await trx
+        .selectFrom('identity.user_role')
+        .innerJoin('identity.role', 'identity.role.id', 'identity.user_role.role_id')
+        .select('identity.user_role.id')
+        .where('identity.user_role.user_account_id', '=', input.userId)
+        .where('identity.role.code', '=', input.roleCode)
+        .where('identity.user_role.revoked_at', 'is', null)
+        .executeTakeFirst();
+
+      if (grant === undefined) {
+        const exists = await trx.selectFrom('identity.user_account').select('id').where('id', '=', input.userId).executeTakeFirst();
+        return exists === undefined ? ({ outcome: 'not_found' } as const) : ({ outcome: 'not_held' } as const);
+      }
+
+      if (input.roleCode === 'ADM') {
+        // `forUpdate` locks every active ADM grant row for the duration of
+        // this transaction, so two concurrent revokes of two different
+        // administrators cannot both read "one other admin exists" and
+        // both proceed — the second waits for the first's commit and then
+        // sees the correct, now-smaller count.
+        const activeAdminGrants = await trx
+          .selectFrom('identity.user_role')
+          .innerJoin('identity.role', 'identity.role.id', 'identity.user_role.role_id')
+          .select('identity.user_role.id')
+          .where('identity.role.code', '=', 'ADM')
+          .where('identity.user_role.revoked_at', 'is', null)
+          .forUpdate()
+          .execute();
+        if (activeAdminGrants.length <= 1) {
+          return { outcome: 'would_remove_last_admin' } as const;
+        }
+      }
+
+      await trx.updateTable('identity.user_role').set({ revoked_at: input.now }).where('id', '=', grant.id).execute();
+      return { outcome: 'revoked' } as const;
+    });
+
+    if (outcome.outcome !== 'revoked') return outcome;
+
+    const account = await this.findAccountDetailById(input.userId);
+    if (account === null) throw new Error(`identity.user_account ${input.userId} vanished immediately after its own role revocation`);
+    return { outcome: 'revoked', account };
   }
 }

@@ -22,17 +22,20 @@ import {
   GetAccountDetailQuery,
   GetOwnProfileQuery,
   GetSessionQuery,
+  GrantRoleHandler,
   KyselyAccountAdminRepository,
   KyselyAuthenticationRepository,
   KyselyOwnProfileRepository,
   KyselyPasswordResetRepository,
   ListAccountsQuery,
+  ListRoleCatalogueQuery,
   LoginWithPasswordHandler,
   LogoutHandler,
   OpenIdClientSsoAdapter,
   PasswordHasher,
   PasswordResetTokenGenerator,
   RequestPasswordResetHandler,
+  RevokeRoleHandler,
   SessionIssuer,
   SsoCallbackHandler,
   SsoLoginHandler,
@@ -84,6 +87,9 @@ export interface Container {
   readonly suspendAccount: SuspendAccountHandler;
   readonly activateAccount: ActivateAccountHandler;
   readonly deactivateAccount: DeactivateAccountHandler;
+  readonly listRoleCatalogue: ListRoleCatalogueQuery;
+  readonly grantRole: GrantRoleHandler;
+  readonly revokeRole: RevokeRoleHandler;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -168,6 +174,9 @@ export function buildContainer(config: AppConfig): Container {
   const suspendAccount = new SuspendAccountHandler(accountAdminRepository, sessionStore, auditRecorder, clock);
   const activateAccount = new ActivateAccountHandler(accountAdminRepository, auditRecorder, clock);
   const deactivateAccount = new DeactivateAccountHandler(accountAdminRepository, sessionStore, auditRecorder, clock);
+  const listRoleCatalogue = new ListRoleCatalogueQuery(accountAdminRepository);
+  const grantRole = new GrantRoleHandler(accountAdminRepository, auditRecorder);
+  const revokeRole = new RevokeRoleHandler(accountAdminRepository, auditRecorder, clock);
 
   return {
     config,
@@ -199,6 +208,9 @@ export function buildContainer(config: AppConfig): Container {
     suspendAccount,
     activateAccount,
     deactivateAccount,
+    listRoleCatalogue,
+    grantRole,
+    revokeRole,
   };
 }
 
