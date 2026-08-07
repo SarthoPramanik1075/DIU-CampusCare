@@ -1,0 +1,22 @@
+.cc-skeleton {
+  background: var(--color-surface-sunken);
+  border-radius: var(--radius-sm);
+  height: 1em;
+  animation: cc-skeleton-pulse 1.4s ease-in-out infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-skeleton {
+    animation: none;
+  }
+}
+
+@keyframes cc-skeleton-pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.5;
+  }
+}

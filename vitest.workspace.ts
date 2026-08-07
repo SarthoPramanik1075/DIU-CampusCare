@@ -7,6 +7,9 @@ import { defineWorkspace } from 'vitest/config';
  * always-correct suites on every commit and gate the expensive ones.
  *
  *   unit          — pure, no I/O. Milliseconds.
+ *   web           — same idea as `unit`, but for `apps/web`: React
+ *                   components need a DOM, so they run under `jsdom`
+ *                   instead of `node` and load Testing Library's matchers.
  *   architecture  — assertions about the shape of the system (DR-1…DR-7,
  *                   database isolation, append-only immutability). These are
  *                   the guard rails; ARCHITECTURE §3.2 requires the build to
@@ -20,8 +23,17 @@ export default defineWorkspace([
   {
     test: {
       name: 'unit',
-      include: ['apps/*/src/**/*.test.ts', 'packages/*/src/**/*.test.ts'],
+      // apps/web is deliberately excluded here — see the `web` project below.
+      include: ['apps/{core-api,counseling-api}/src/**/*.test.ts', 'packages/*/src/**/*.test.ts'],
       environment: 'node',
+    },
+  },
+  {
+    test: {
+      name: 'web',
+      include: ['apps/web/src/**/*.test.{ts,tsx}'],
+      environment: 'jsdom',
+      setupFiles: ['apps/web/src/test/setup.ts'],
     },
   },
   {

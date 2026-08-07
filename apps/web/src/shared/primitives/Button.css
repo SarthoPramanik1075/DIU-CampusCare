@@ -1,0 +1,101 @@
+.cc-button {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: var(--space-1);
+  border-radius: var(--radius-sm);
+  border: var(--border-width) solid transparent;
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  font-weight: 500;
+  cursor: pointer;
+  transition:
+    background-color var(--motion-fast) var(--motion-ease),
+    border-color var(--motion-fast) var(--motion-ease);
+  white-space: nowrap;
+}
+
+/* Sizes — FRONTEND §5.1 / §4.3 touch targets. */
+.cc-button--sm {
+  height: 32px;
+  padding: 0 var(--space-2);
+  font-size: var(--text-sm);
+}
+.cc-button--md {
+  height: 40px;
+  padding: 0 var(--space-2);
+}
+.cc-button--lg {
+  height: 48px;
+  padding: 0 var(--space-3);
+  font-size: var(--text-lg);
+}
+
+/* Variants. */
+.cc-button--primary {
+  background: var(--color-primary);
+  color: var(--color-text-on-fill);
+}
+.cc-button--primary:hover:not([aria-disabled='true']) {
+  background: var(--color-primary-hover);
+}
+
+.cc-button--secondary {
+  background: transparent;
+  color: var(--color-primary);
+  border-color: var(--color-border-strong);
+}
+.cc-button--secondary:hover:not([aria-disabled='true']) {
+  background: var(--color-primary-subtle);
+}
+
+.cc-button--tertiary {
+  background: transparent;
+  color: var(--color-primary);
+  padding-inline: var(--space-1);
+}
+.cc-button--tertiary:hover:not([aria-disabled='true']) {
+  background: var(--color-primary-subtle);
+}
+
+.cc-button--danger {
+  background: var(--color-danger);
+  color: var(--color-text-on-fill);
+}
+.cc-button--danger:hover:not([aria-disabled='true']) {
+  filter: brightness(0.9);
+}
+
+/* Disabled — FRONTEND §5.1: aria-disabled, not the native attribute, so a
+   loading button can retain focus and a disabled one can still expose its
+   reason to a keyboard/screen-reader user. */
+.cc-button[aria-disabled='true'] {
+  background: var(--color-surface-sunken);
+  color: var(--color-text-muted);
+  border-color: transparent;
+  cursor: not-allowed;
+  pointer-events: none;
+}
+
+.cc-button__spinner {
+  animation: cc-spin 800ms linear infinite;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .cc-button__spinner {
+    animation: none;
+  }
+}
+
+@keyframes cc-spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+.cc-button__help {
+  display: block;
+  margin-top: var(--space-0-5);
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}

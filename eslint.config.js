@@ -1,5 +1,7 @@
 import js from '@eslint/js';
 import importX from 'eslint-plugin-import-x';
+import jsxA11y from 'eslint-plugin-jsx-a11y';
+import reactHooks from 'eslint-plugin-react-hooks';
 import tseslint from 'typescript-eslint';
 
 /**
@@ -130,12 +132,25 @@ export default tseslint.config(
 
   // Test files: relax the rules that fight test ergonomics without hiding bugs.
   {
-    files: ['**/*.test.ts', '**/tests/**/*.ts'],
+    files: ['**/*.test.ts', '**/*.test.tsx', '**/tests/**/*.ts'],
     rules: {
       'no-console': 'off',
       '@typescript-eslint/no-non-null-assertion': 'off',
       '@typescript-eslint/no-unsafe-assignment': 'off',
       '@typescript-eslint/no-unsafe-member-access': 'off',
+    },
+  },
+
+  // apps/web — React accessibility and hooks correctness. FRONTEND.md's
+  // obligations (O1…O6) are largely accessibility requirements, so
+  // jsx-a11y's checks are not boilerplate here; they are load-bearing for
+  // the same requirements the component API shapes already enforce.
+  {
+    files: ['apps/web/src/**/*.tsx'],
+    plugins: { 'jsx-a11y': jsxA11y, 'react-hooks': reactHooks },
+    rules: {
+      ...jsxA11y.configs.recommended.rules,
+      ...reactHooks.configs.recommended.rules,
     },
   },
 

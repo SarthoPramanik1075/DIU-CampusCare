@@ -1,0 +1,49 @@
+.cc-field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+}
+
+.cc-field__label {
+  font-size: var(--text-base);
+  font-weight: 500;
+  color: var(--color-text);
+}
+
+.cc-field__required {
+  color: var(--color-danger);
+  margin-left: var(--space-0-5);
+}
+
+.cc-field__input {
+  height: 40px;
+  padding: 0 var(--space-2);
+  border: var(--border-width) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  font-family: var(--font-sans);
+  font-size: var(--text-base);
+  color: var(--color-text);
+  background: var(--color-bg);
+}
+
+.cc-field__input:focus-visible {
+  border-color: var(--color-focus-ring);
+}
+
+.cc-field__input[aria-invalid='true'] {
+  border-width: var(--border-width-strong);
+  border-color: var(--color-danger);
+}
+
+.cc-field__help {
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.cc-field__error {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-0-5);
+  font-size: var(--text-sm);
+  color: var(--color-danger);
+}

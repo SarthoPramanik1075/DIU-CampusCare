@@ -1,0 +1,76 @@
+.cc-banner {
+  display: flex;
+  gap: var(--space-1);
+  align-items: flex-start;
+  padding: var(--space-2);
+  border-radius: var(--radius-md);
+  border: var(--border-width) solid var(--color-border);
+}
+
+.cc-banner--info {
+  background: var(--color-info-bg);
+  color: var(--color-text);
+}
+.cc-banner--success {
+  background: var(--color-success-bg);
+  color: var(--color-text);
+}
+.cc-banner--warning {
+  background: var(--color-warning-bg);
+  color: var(--color-text);
+}
+.cc-banner--danger {
+  background: var(--color-danger-bg);
+  color: var(--color-text);
+}
+
+.cc-banner__icon {
+  flex-shrink: 0;
+  margin-top: 2px;
+}
+.cc-banner--info .cc-banner__icon {
+  color: var(--color-info);
+}
+.cc-banner--success .cc-banner__icon {
+  color: var(--color-success);
+}
+.cc-banner--warning .cc-banner__icon {
+  color: var(--color-warning);
+}
+.cc-banner--danger .cc-banner__icon {
+  color: var(--color-danger);
+}
+
+.cc-banner__body {
+  flex: 1;
+  min-width: 0;
+}
+
+.cc-banner__heading {
+  font-weight: 600;
+  margin: 0 0 var(--space-0-5);
+}
+
+.cc-banner__message {
+  margin: 0;
+}
+
+.cc-banner__action {
+  display: inline-block;
+  margin-top: var(--space-1);
+  color: var(--color-primary);
+  font-weight: 500;
+}
+
+.cc-banner__dismiss {
+  flex-shrink: 0;
+  background: transparent;
+  border: none;
+  cursor: pointer;
+  color: var(--color-text-secondary);
+  padding: var(--space-0-5);
+  border-radius: var(--radius-sm);
+}
+.cc-banner__dismiss:hover {
+  background: rgb(22 25 29 / 0.06);
+}

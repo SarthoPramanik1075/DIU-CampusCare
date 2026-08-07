@@ -3,7 +3,7 @@
   "version": "0.1.0",
   "private": true,
   "type": "module",
-  "description": "DIU CampusCare \u2014 Smart Medical & Counseling Management System",
+  "description": "DIU CampusCare — Smart Medical & Counseling Management System",
   "packageManager": "pnpm@9.15.4",
   "engines": {
     "node": ">=22.13.0"
@@ -30,18 +30,22 @@
     "build": "pnpm -r build"
   },
   "devDependencies": {
+    "@campuscare/architecture-testing": "workspace:*",
     "@eslint/js": "^9.18.0",
     "@types/node": "^22.10.6",
     "@types/pg": "^8.20.4",
     "dotenv": "^17.4.2",
     "eslint": "^9.18.0",
     "eslint-plugin-import-x": "^4.6.1",
+    "eslint-plugin-jsx-a11y": "^6.10.2",
+    "eslint-plugin-react-hooks": "^5.1.0",
+    "jsdom": "^25.0.1",
     "pg": "^8.22.0",
+    "playwright": "^1.62.1",
     "prettier": "^3.4.2",
     "tsx": "^4.19.2",
     "typescript": "^5.7.3",
     "typescript-eslint": "^8.20.0",
-    "vitest": "^2.1.8",
-    "@campuscare/architecture-testing": "workspace:*"
+    "vitest": "^2.1.8"
   }
 }
