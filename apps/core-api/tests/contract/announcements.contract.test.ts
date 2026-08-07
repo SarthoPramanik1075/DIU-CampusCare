@@ -64,6 +64,7 @@ function buildTestApp(repository: AnnouncementRepository, now: Date): Promise<Fa
       featureCounselingEnabled: false,
       featureEmailEnabled: false,
       sessionSecret: 'a'.repeat(32),
+      sso: undefined,
     },
     // Nothing in this contract test's request path touches the database —
     // the announcements route is ANON-permitted, so the PEP never calls
@@ -91,6 +92,8 @@ function buildTestApp(repository: AnnouncementRepository, now: Date): Promise<Fa
     loginWithPassword: undefined as unknown as Container['loginWithPassword'],
     logout: undefined as unknown as Container['logout'],
     getSession: undefined as unknown as Container['getSession'],
+    ssoLogin: undefined as unknown as Container['ssoLogin'],
+    ssoCallback: undefined as unknown as Container['ssoCallback'],
   };
 
   return buildApp(container);

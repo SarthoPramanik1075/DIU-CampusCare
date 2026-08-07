@@ -19,8 +19,13 @@ import {
   KyselyAuthenticationRepository,
   LoginWithPasswordHandler,
   LogoutHandler,
+  OpenIdClientSsoAdapter,
   PasswordHasher,
+  SessionIssuer,
+  SsoCallbackHandler,
+  SsoLoginHandler,
   type AuthenticationRepository,
+  type SsoClient,
 } from '../modules/iam/index.js';
 
 import type { AppConfig } from './config.js';
@@ -48,6 +53,8 @@ export interface Container {
   readonly loginWithPassword: LoginWithPasswordHandler;
   readonly logout: LogoutHandler;
   readonly getSession: GetSessionQuery;
+  readonly ssoLogin: SsoLoginHandler;
+  readonly ssoCallback: SsoCallbackHandler;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -66,12 +73,12 @@ export function buildContainer(config: AppConfig): Container {
   const listActiveAnnouncements = new ListActiveAnnouncementsHandler(announcementRepository, clock);
 
   const authenticationRepository: AuthenticationRepository = new KyselyAuthenticationRepository(db);
+  const sessionIssuer = new SessionIssuer(authenticationRepository, sessionStore, csrfTokenService, policyStore);
   const getSession = new GetSessionQuery(authenticationRepository, sessionStore, csrfTokenService, policyStore);
   const loginWithPassword = new LoginWithPasswordHandler(
     authenticationRepository,
     passwordHasher,
-    sessionStore,
-    csrfTokenService,
+    sessionIssuer,
     policyStore,
     auditRecorder,
     (input) => enqueueNotification(db, input),
@@ -79,6 +86,10 @@ export function buildContainer(config: AppConfig): Container {
   );
   const logout = new LogoutHandler(sessionStore, auditRecorder);
   const resolveSubject = createAuthenticatedSubjectResolver(getSession);
+
+  const ssoClient: SsoClient = new OpenIdClientSsoAdapter(config.sso);
+  const ssoLogin = new SsoLoginHandler(ssoClient);
+  const ssoCallback = new SsoCallbackHandler(ssoClient, authenticationRepository, sessionIssuer, auditRecorder);
 
   return {
     config,
@@ -97,6 +108,8 @@ export function buildContainer(config: AppConfig): Container {
     loginWithPassword,
     logout,
     getSession,
+    ssoLogin,
+    ssoCallback,
   };
 }
 

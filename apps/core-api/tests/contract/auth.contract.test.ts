@@ -12,9 +12,13 @@ import {
   LoginWithPasswordHandler,
   LogoutHandler,
   PasswordHasher,
+  SessionIssuer,
+  SsoCallbackHandler,
+  SsoLoginHandler,
   type AccountSummary,
   type AccountWithCredential,
   type AuthenticationRepository,
+  type SsoClient,
 } from '../../src/modules/iam/index.js';
 import { FixedClock } from '../support/fixed-clock.js';
 
@@ -69,6 +73,10 @@ class InMemoryAuthenticationRepository implements AuthenticationRepository {
 
   recordLoginAttempt(): Promise<void> {
     return Promise.resolve();
+  }
+
+  findOrProvisionBySsoSubject(): Promise<AccountSummary> {
+    throw new Error('not exercised by this contract suite — see login-with-password.test.ts for SSO paths');
   }
 }
 
@@ -126,11 +134,11 @@ async function buildTestApp(): Promise<{ app: FastifyInstance; repository: InMem
   // is a plain no-op rather than the real DB-backed implementation.
   const auditRecorder = { recordChange: () => Promise.resolve() } as unknown as AuditRecorder;
 
+  const sessionIssuer = new SessionIssuer(repository, sessionStore, csrfTokenService, policyStore);
   const loginWithPassword = new LoginWithPasswordHandler(
     repository,
     passwordHasher,
-    sessionStore,
-    csrfTokenService,
+    sessionIssuer,
     policyStore,
     auditRecorder,
     () => Promise.resolve(),
@@ -138,6 +146,22 @@ async function buildTestApp(): Promise<{ app: FastifyInstance; repository: InMem
   );
   const getSession = new GetSessionQuery(repository, sessionStore, csrfTokenService, policyStore);
   const logout = new LogoutHandler(sessionStore, auditRecorder);
+
+  // Not configured in this tier — the SSO round trip needs a real IdP
+  // (`login-with-password.test.ts` documents why that can't be tested
+  // here); constructing real handlers around an unconfigured client still
+  // lets this suite assert the 503 SSO_UNAVAILABLE degradation.
+  const unconfiguredSsoClient: SsoClient = {
+    isConfigured: false,
+    createAuthorizationRequest: () => {
+      throw new Error('unreachable — isConfigured is false');
+    },
+    completeLogin: () => {
+      throw new Error('unreachable — isConfigured is false');
+    },
+  };
+  const ssoLogin = new SsoLoginHandler(unconfiguredSsoClient);
+  const ssoCallback = new SsoCallbackHandler(unconfiguredSsoClient, repository, sessionIssuer, auditRecorder);
 
   const container: Container = {
     config: {
@@ -149,6 +173,7 @@ async function buildTestApp(): Promise<{ app: FastifyInstance; repository: InMem
       featureCounselingEnabled: false,
       featureEmailEnabled: false,
       sessionSecret: 'a'.repeat(32),
+      sso: undefined,
     },
     logger: { level: 'silent', error: () => undefined, info: () => undefined } as unknown as Container['logger'],
     db: undefined as unknown as Container['db'],
@@ -165,6 +190,8 @@ async function buildTestApp(): Promise<{ app: FastifyInstance; repository: InMem
     loginWithPassword,
     logout,
     getSession,
+    ssoLogin,
+    ssoCallback,
   };
 
   return { app: await buildApp(container), repository };
@@ -275,5 +302,35 @@ describe('Auth routes — contract', () => {
     ({ app } = await buildTestApp());
     const response = await app.inject({ method: 'POST', url: '/api/v1/auth/logout' });
     expect(response.statusCode).toBe(204);
+  });
+
+  it('GET /api/v1/auth/sso/login — 503 SSO_UNAVAILABLE with no IdP configured', async () => {
+    ({ app } = await buildTestApp());
+
+    const response = await app.inject({ method: 'GET', url: '/api/v1/auth/sso/login' });
+
+    expect(response.statusCode).toBe(503);
+    expect(response.json<ErrorEnvelopeBody>().error.code).toBe('SSO_UNAVAILABLE');
+  });
+
+  it('GET /api/v1/auth/sso/login — 422 INVALID_REDIRECT for an absolute redirectTo', async () => {
+    ({ app } = await buildTestApp());
+
+    const response = await app.inject({
+      method: 'GET',
+      url: '/api/v1/auth/sso/login?redirectTo=https://evil.example.com',
+    });
+
+    expect(response.statusCode).toBe(422);
+    expect(response.json<ErrorEnvelopeBody>().error.code).toBe('INVALID_REDIRECT');
+  });
+
+  it('GET /api/v1/auth/sso/callback — 403 SSO_STATE_MISMATCH with no pre-session cookie', async () => {
+    ({ app } = await buildTestApp());
+
+    const response = await app.inject({ method: 'GET', url: '/api/v1/auth/sso/callback?code=abc&state=xyz' });
+
+    expect(response.statusCode).toBe(403);
+    expect(response.json<ErrorEnvelopeBody>().error.code).toBe('SSO_STATE_MISMATCH');
   });
 });

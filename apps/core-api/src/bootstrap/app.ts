@@ -37,7 +37,9 @@ export async function buildApp(container: Container): Promise<FastifyInstance> {
 
   await app.register(registerCorrelationId);
   await app.register(cors, { origin: container.config.webAppOrigin, credentials: true });
-  await app.register(cookie);
+  // `secret` enables signed cookies — the SSO pre-session (§1.1) is one,
+  // carrying its PKCE verifier and state across the IdP round trip.
+  await app.register(cookie, { secret: container.config.sessionSecret });
 
   registerErrorHandling(app, container.logger);
 
@@ -56,6 +58,8 @@ export async function buildApp(container: Container): Promise<FastifyInstance> {
     loginWithPassword: container.loginWithPassword,
     logout: container.logout,
     getSession: container.getSession,
+    ssoLogin: container.ssoLogin,
+    ssoCallback: container.ssoCallback,
     // API §0.2: Secure in every real deployment; only relaxed for local
     // http:// development, same distinction NODE_ENV already draws
     // elsewhere in this bootstrap.

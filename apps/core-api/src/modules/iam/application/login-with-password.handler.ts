@@ -1,10 +1,8 @@
-import { toBstIsoString, type RoleCode } from '@campuscare/shared-types';
+import { toBstIsoString } from '@campuscare/shared-types';
 
 import type { AuditRecorder } from '../../../kernel/audit/audit-recorder.js';
 import type { Clock } from '../../../kernel/clock/clock.js';
 import { AuthorizationError, ValidationError } from '../../../kernel/errors/domain-error.js';
-import type { CsrfTokenService } from '../../../kernel/identity/csrf.js';
-import type { SessionStore } from '../../../kernel/identity/session-store.js';
 import type { EnqueueNotificationInput } from '../../../kernel/notifications/enqueue-notification.js';
 import type { PolicyStore } from '../../../kernel/policy/policy-store.js';
 import { err, ok, type Result } from '../../../kernel/shared/result.js';
@@ -13,7 +11,7 @@ import { isDiuInstitutionalEmail } from '../domain/validation.js';
 import type { PasswordHasher } from '../infrastructure/password-hasher.js';
 
 import type { AuthenticationRepository } from './authentication-repository.js';
-import { resolveIdleTimeoutMinutes } from './resolve-idle-timeout.js';
+import type { IssuedSession, SessionIssuer } from './session-issuer.js';
 
 export interface LoginWithPasswordInput {
   readonly email: string;
@@ -22,15 +20,7 @@ export interface LoginWithPasswordInput {
   readonly correlationId: string;
 }
 
-export interface LoginSuccess {
-  readonly userId: string;
-  readonly fullName: string;
-  readonly roles: readonly RoleCode[];
-  readonly sessionId: string;
-  readonly csrfToken: string;
-  readonly sessionExpiresAt: Date;
-  readonly idleTimeoutMinutes: number;
-}
+export type LoginSuccess = IssuedSession;
 
 /**
  * A string that is never a real password, hashed once and cached, so the
@@ -47,8 +37,7 @@ export class LoginWithPasswordHandler {
   constructor(
     private readonly repository: AuthenticationRepository,
     private readonly passwordHasher: PasswordHasher,
-    private readonly sessionStore: SessionStore,
-    private readonly csrfTokenService: CsrfTokenService,
+    private readonly sessionIssuer: SessionIssuer,
     private readonly policyStore: PolicyStore,
     private readonly auditRecorder: AuditRecorder,
     private readonly enqueueNotification: (input: EnqueueNotificationInput) => Promise<void>,
@@ -116,17 +105,7 @@ export class LoginWithPasswordHandler {
       );
     }
 
-    const roles = await this.repository.loadActiveRoleCodes(account.id);
-
-    // NFR-SEC-08: sessions are regenerated on login — any prior session for
-    // this account stops working the moment a new one is issued.
-    await this.sessionStore.revokeAllForUser(account.id);
-    const idleTimeoutMinutes = await resolveIdleTimeoutMinutes(this.policyStore, roles);
-    const session = await this.sessionStore.create({
-      userAccountId: account.id,
-      idleTimeoutMs: idleTimeoutMinutes * 60_000,
-    });
-    const csrfToken = this.csrfTokenService.issue(session.id);
+    const session = await this.sessionIssuer.issueFor(account);
 
     await this.repository.recordLoginAttempt({
       emailAttempted: input.email,
@@ -136,22 +115,14 @@ export class LoginWithPasswordHandler {
     });
     await this.auditRecorder.recordChange({
       entityType: 'identity.user_session',
-      entityId: session.id,
+      entityId: session.sessionId,
       action: 'login',
       actorId: account.id,
-      actorRole: roles[0] ?? null,
+      actorRole: session.roles[0] ?? null,
       correlationId: input.correlationId,
     });
 
-    return ok({
-      userId: account.id,
-      fullName: account.fullName,
-      roles,
-      sessionId: session.id,
-      csrfToken,
-      sessionExpiresAt: session.expiresAt,
-      idleTimeoutMinutes,
-    });
+    return ok(session);
   }
 
   private async handleFailedPassword(

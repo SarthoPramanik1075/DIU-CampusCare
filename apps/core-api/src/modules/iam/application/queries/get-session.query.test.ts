@@ -33,6 +33,7 @@ function buildQuery(overrides: { readonly repository?: Partial<AuthenticationRep
     recordFailedAttempt: vi.fn(),
     resetFailedAttempts: vi.fn(),
     recordLoginAttempt: vi.fn(),
+    findOrProvisionBySsoSubject: vi.fn(),
     ...overrides.repository,
   };
 

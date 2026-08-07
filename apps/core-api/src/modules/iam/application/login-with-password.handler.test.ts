@@ -9,6 +9,7 @@ import type { PasswordHasher } from '../infrastructure/password-hasher.js';
 
 import type { AccountWithCredential, AuthenticationRepository } from './authentication-repository.js';
 import { LoginWithPasswordHandler } from './login-with-password.handler.js';
+import { SessionIssuer } from './session-issuer.js';
 
 const NOW = new Date('2026-08-03T14:35:00+06:00');
 
@@ -35,6 +36,7 @@ function buildHandler(overrides: {
     recordFailedAttempt: vi.fn().mockResolvedValue(undefined),
     resetFailedAttempts: vi.fn().mockResolvedValue(undefined),
     recordLoginAttempt: vi.fn().mockResolvedValue(undefined),
+    findOrProvisionBySsoSubject: vi.fn(),
     ...overrides.repository,
   };
 
@@ -74,12 +76,12 @@ function buildHandler(overrides: {
   const auditRecorder = { recordChange: vi.fn().mockResolvedValue(undefined) } as unknown as AuditRecorder;
   const enqueueNotification = vi.fn().mockResolvedValue(undefined);
   const clock: Clock = { now: () => NOW };
+  const sessionIssuer = new SessionIssuer(repository, sessionStore, csrfTokenService, policyStore);
 
   const handler = new LoginWithPasswordHandler(
     repository,
     passwordHasher,
-    sessionStore,
-    csrfTokenService,
+    sessionIssuer,
     policyStore,
     auditRecorder,
     enqueueNotification,

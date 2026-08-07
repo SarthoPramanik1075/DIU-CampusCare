@@ -12,6 +12,7 @@ import {
   KyselyAuthenticationRepository,
   LoginWithPasswordHandler,
   PasswordHasher,
+  SessionIssuer,
   seedIamPolicies,
 } from '../../src/modules/iam/index.js';
 import { FixedClock } from '../support/fixed-clock.js';
@@ -43,12 +44,12 @@ describe('LoginWithPasswordHandler — integration', () => {
     const sessionStore = new SessionStore(db, clock);
     const csrfTokenService = new CsrfTokenService('a'.repeat(32));
     const auditRecorder = new AuditRecorder(db);
+    const sessionIssuer = new SessionIssuer(repository, sessionStore, csrfTokenService, policyStore);
 
     handler = new LoginWithPasswordHandler(
       repository,
       passwordHasher,
-      sessionStore,
-      csrfTokenService,
+      sessionIssuer,
       policyStore,
       auditRecorder,
       (input) => enqueueNotification(db, input),

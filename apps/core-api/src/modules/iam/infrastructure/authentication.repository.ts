@@ -8,6 +8,7 @@ import type {
   AccountWithCredential,
   AuthenticationRepository,
   RecordLoginAttemptInput,
+  SsoIdentityInput,
 } from '../application/authentication-repository.js';
 
 export class KyselyAuthenticationRepository implements AuthenticationRepository {
@@ -98,5 +99,60 @@ export class KyselyAuthenticationRepository implements AuthenticationRepository 
         source_address: input.sourceAddress,
       })
       .execute();
+  }
+
+  async findOrProvisionBySsoSubject(identity: SsoIdentityInput): Promise<AccountSummary> {
+    const existing = await this.db
+      .selectFrom('identity.user_account')
+      .select(['id', 'email', 'full_name', 'status', 'version'])
+      .where('external_subject', '=', identity.subject)
+      .executeTakeFirst();
+
+    if (existing !== undefined) {
+      return {
+        id: existing.id,
+        email: existing.email,
+        fullName: existing.full_name,
+        status: existing.status,
+        version: existing.version,
+      };
+    }
+
+    return this.db.transaction().execute(async (trx) => {
+      const studentRole = await trx
+        .selectFrom('identity.role')
+        .select('id')
+        .where('code', '=', 'STU')
+        .executeTakeFirstOrThrow(
+          () => new Error('identity.role has no STU row — has 006_iam_extensions.sql been migrated?'),
+        );
+
+      const newAccountId = uuidv7();
+      await trx
+        .insertInto('identity.user_account')
+        .values({
+          id: newAccountId,
+          email: identity.email,
+          external_subject: identity.subject,
+          full_name: identity.fullName,
+          status: 'active',
+        })
+        .execute();
+      await trx
+        .insertInto('identity.user_role')
+        .values({
+          id: uuidv7(),
+          user_account_id: newAccountId,
+          role_id: studentRole.id,
+          // Self-granted: no administrator is involved in SSO
+          // auto-provisioning (FR-AUTH-01), unlike every other role grant
+          // (PRM-13), which is exactly why STU is the one role this
+          // endpoint may ever grant.
+          granted_by: newAccountId,
+        })
+        .execute();
+
+      return { id: newAccountId, email: identity.email, fullName: identity.fullName, status: 'active', version: 1 };
+    });
   }
 }

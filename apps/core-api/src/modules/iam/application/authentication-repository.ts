@@ -37,6 +37,13 @@ export interface RecordLoginAttemptInput {
   readonly sourceAddress: string | null;
 }
 
+/** Claims identifying the account an SSO login resolved to. */
+export interface SsoIdentityInput {
+  readonly subject: string;
+  readonly email: string;
+  readonly fullName: string;
+}
+
 /**
  * Port for the `identity` tables the login/session use cases touch —
  * `application/` owns this interface, `infrastructure/` supplies the
@@ -50,4 +57,11 @@ export interface AuthenticationRepository {
   recordFailedAttempt(userAccountId: string, lockedUntil: Date | null): Promise<void>;
   resetFailedAttempts(userAccountId: string): Promise<void>;
   recordLoginAttempt(input: RecordLoginAttemptInput): Promise<void>;
+  /**
+   * FR-AUTH-01/§0-preamble: "student accounts are provisioned on first
+   * successful SSO." Finds the account by IdP subject; if none exists yet,
+   * creates one (status `active` — a successful SSO round trip already
+   * proves institutional identity) and grants `STU`, atomically.
+   */
+  findOrProvisionBySsoSubject(identity: SsoIdentityInput): Promise<AccountSummary>;
 }

@@ -18,6 +18,15 @@ export interface AppConfig {
   readonly featureEmailEnabled: boolean;
   /** API §0.2: HMAC key the CSRF token is derived from. Never used to sign or encrypt anything else. */
   readonly sessionSecret: string;
+  /**
+   * FR-AUTH-01/CON-05: "SSO availability is not guaranteed." `undefined`
+   * (any of the four unset) is a normal, supported configuration — no real
+   * DIU identity provider exists in development — and degrades to API
+   * §1.1's `SSO_UNAVAILABLE` path rather than failing to start.
+   */
+  readonly sso:
+    | { readonly issuerUrl: string; readonly clientId: string; readonly clientSecret: string; readonly redirectUri: string }
+    | undefined;
 }
 
 function requireEnv(key: string): string {
@@ -33,6 +42,25 @@ function readBooleanFlag(key: string, fallback: boolean): boolean {
   return value === undefined ? fallback : value === 'true';
 }
 
+function loadSsoConfig(): AppConfig['sso'] {
+  const issuerUrl = process.env.SSO_ISSUER_URL;
+  const clientId = process.env.SSO_CLIENT_ID;
+  const clientSecret = process.env.SSO_CLIENT_SECRET;
+  const redirectUri = process.env.SSO_REDIRECT_URI;
+
+  if (issuerUrl === undefined && clientId === undefined && clientSecret === undefined && redirectUri === undefined) {
+    return undefined;
+  }
+  // Partial configuration is a deployment mistake, not a supported state —
+  // unlike "all four absent", which is the documented SSO_UNAVAILABLE path.
+  return {
+    issuerUrl: requireEnv('SSO_ISSUER_URL'),
+    clientId: requireEnv('SSO_CLIENT_ID'),
+    clientSecret: requireEnv('SSO_CLIENT_SECRET'),
+    redirectUri: requireEnv('SSO_REDIRECT_URI'),
+  };
+}
+
 export function loadConfig(): AppConfig {
   return {
     nodeEnv: process.env.NODE_ENV ?? 'development',
@@ -43,5 +71,6 @@ export function loadConfig(): AppConfig {
     featureCounselingEnabled: readBooleanFlag('FEATURE_COUNSELING_ENABLED', false),
     featureEmailEnabled: readBooleanFlag('FEATURE_EMAIL_ENABLED', false),
     sessionSecret: requireEnv('SESSION_SECRET'),
+    sso: loadSsoConfig(),
   };
 }
