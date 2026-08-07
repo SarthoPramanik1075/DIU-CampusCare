@@ -278,6 +278,8 @@ async function buildTestApp(): Promise<{
     ssoCallback,
     requestPasswordReset,
     confirmPasswordReset,
+    getOwnProfile: undefined as unknown as Container['getOwnProfile'],
+    updateOwnProfile: undefined as unknown as Container['updateOwnProfile'],
   };
 
   return { app: await buildApp(container), repository, sentEmails };

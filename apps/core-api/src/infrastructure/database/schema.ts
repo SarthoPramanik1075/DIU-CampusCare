@@ -136,6 +136,14 @@ export interface PasswordResetTokenTable {
   created_at: Generated<Date>;
 }
 
+export interface StudentProfileTable {
+  user_account_id: string;
+  student_ref: string;
+  programme: string | null;
+  is_enrolled: Generated<boolean>;
+  version: Generated<number>;
+}
+
 // ---------------------------------------------------------------------
 // schema: notification
 // ---------------------------------------------------------------------
@@ -241,6 +249,7 @@ export interface Database {
   'identity.user_role': UserRoleTable;
   'identity.login_attempt': LoginAttemptTable;
   'identity.password_reset_token': PasswordResetTokenTable;
+  'identity.student_profile': StudentProfileTable;
   'notification.notification_template': NotificationTemplateTable;
   'notification.notification': NotificationTable;
   'notification.notification_outbox': NotificationOutboxTable;

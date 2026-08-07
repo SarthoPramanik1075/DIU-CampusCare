@@ -49,3 +49,8 @@ export function evaluatePasswordComplexity(password: string): PasswordComplexity
     satisfiesPolicy: meetsMinimumLength && classesMet >= MINIMUM_CHARACTER_CLASSES,
   };
 }
+
+/** API §1.2 `PATCH /me` — "Non-empty after trimming." */
+export function isNonEmptyAfterTrim(value: string): boolean {
+  return value.trim().length > 0;
+}

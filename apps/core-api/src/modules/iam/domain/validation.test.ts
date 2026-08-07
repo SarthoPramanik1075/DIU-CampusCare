@@ -1,6 +1,6 @@
 import { describe, expect, it } from 'vitest';
 
-import { evaluatePasswordComplexity, isDiuInstitutionalEmail } from './validation.js';
+import { evaluatePasswordComplexity, isDiuInstitutionalEmail, isNonEmptyAfterTrim } from './validation.js';
 
 describe('isDiuInstitutionalEmail — VR-01', () => {
   it('accepts a DIU institutional address', () => {
@@ -56,5 +56,19 @@ describe('evaluatePasswordComplexity — VR-02', () => {
 
   it('passes with all four classes', () => {
     expect(evaluatePasswordComplexity('Abcdefg1!2').satisfiesPolicy).toBe(true);
+  });
+});
+
+describe('isNonEmptyAfterTrim — API §1.2 PATCH /me', () => {
+  it('accepts a name with content', () => {
+    expect(isNonEmptyAfterTrim('Nusrat Jahan Mim')).toBe(true);
+  });
+
+  it('rejects an empty string', () => {
+    expect(isNonEmptyAfterTrim('')).toBe(false);
+  });
+
+  it('rejects whitespace-only input', () => {
+    expect(isNonEmptyAfterTrim('   \t\n  ')).toBe(false);
   });
 });

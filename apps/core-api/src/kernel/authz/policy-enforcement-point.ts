@@ -5,6 +5,7 @@ import { AuthorizationError } from '../errors/domain-error.js';
 import { getCorrelationId } from '../http/correlation.js';
 import type { SubjectResolver } from '../identity/subject-resolver.js';
 
+import type { OwnershipEvaluator } from './ownership.js';
 import type { CoreResourceName, PermissionAction } from './permission-matrix.js';
 import type { PolicyDecisionPoint } from './policy-decision-point.js';
 
@@ -27,6 +28,14 @@ import type { PolicyDecisionPoint } from './policy-decision-point.js';
 export interface AuthorizationRouteConfig {
   readonly resource: CoreResourceName;
   readonly action: PermissionAction;
+  /**
+   * Required for a resource whose matrix rule is `scope: 'own'` — the module
+   * registering the route is the only place that can say what "own" means
+   * for it (DR-1; see `ownership.ts`). Built from the request so it can
+   * compare, e.g., a route param against the resolved subject; omitted
+   * entirely for `scope: 'any'` resources, which never consult it.
+   */
+  readonly isOwner?: (request: FastifyRequest) => OwnershipEvaluator;
 }
 
 /**
@@ -54,9 +63,26 @@ export function createPolicyEnforcementPoint(deps: {
         subject,
         resource: config.resource,
         action: config.action,
+        ...(config.isOwner === undefined ? {} : { isOwner: config.isOwner(request) }),
       });
 
       if (decision.permit) return;
+
+      // API §0.5's universal set draws a real line the matrix denial alone
+      // does not: `UNAUTHENTICATED` (401, "no session cookie, or the
+      // session is unknown") is not the same failure as `FORBIDDEN` (403,
+      // "the PDP denied a real, signed-in subject") — a caller who was
+      // never signed in has not been *forbidden* anything, so this is
+      // decided from the subject, not from `decision.reasonCode`, and
+      // (matching `auth.routes.ts`'s own 401 paths) it never reaches the
+      // PRM-12 denial log either.
+      if (subject.roles.length === 1 && subject.roles[0] === 'ANON') {
+        throw new AuthorizationError({
+          code: 'UNAUTHENTICATED',
+          message: 'Sign in to continue.',
+          httpStatus: 401,
+        });
+      }
 
       await deps.auditRecorder.recordDenial({
         attemptedRole: subject.roles.at(-1) ?? null,

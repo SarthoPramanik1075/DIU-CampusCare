@@ -16,8 +16,10 @@ import { KyselyAnnouncementRepository, ListActiveAnnouncementsHandler } from '..
 import {
   ConfirmPasswordResetHandler,
   createAuthenticatedSubjectResolver,
+  GetOwnProfileQuery,
   GetSessionQuery,
   KyselyAuthenticationRepository,
+  KyselyOwnProfileRepository,
   KyselyPasswordResetRepository,
   LoginWithPasswordHandler,
   LogoutHandler,
@@ -28,7 +30,9 @@ import {
   SessionIssuer,
   SsoCallbackHandler,
   SsoLoginHandler,
+  UpdateOwnProfileHandler,
   type AuthenticationRepository,
+  type OwnProfileRepository,
   type PasswordResetRepository,
   type SsoClient,
 } from '../modules/iam/index.js';
@@ -62,6 +66,8 @@ export interface Container {
   readonly ssoCallback: SsoCallbackHandler;
   readonly requestPasswordReset: RequestPasswordResetHandler;
   readonly confirmPasswordReset: ConfirmPasswordResetHandler;
+  readonly getOwnProfile: GetOwnProfileQuery;
+  readonly updateOwnProfile: UpdateOwnProfileHandler;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -119,6 +125,15 @@ export function buildContainer(config: AppConfig): Container {
     clock,
   );
 
+  const ownProfileRepository: OwnProfileRepository = new KyselyOwnProfileRepository(db);
+  const getOwnProfile = new GetOwnProfileQuery(ownProfileRepository, authenticationRepository);
+  const updateOwnProfile = new UpdateOwnProfileHandler(
+    ownProfileRepository,
+    authenticationRepository,
+    auditRecorder,
+    clock,
+  );
+
   return {
     config,
     logger,
@@ -140,6 +155,8 @@ export function buildContainer(config: AppConfig): Container {
     ssoCallback,
     requestPasswordReset,
     confirmPasswordReset,
+    getOwnProfile,
+    updateOwnProfile,
   };
 }
 

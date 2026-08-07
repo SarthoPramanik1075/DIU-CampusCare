@@ -22,6 +22,7 @@ export { PasswordHasher } from './infrastructure/password-hasher.js';
 export { PasswordResetTokenGenerator } from './infrastructure/password-reset-token-generator.js';
 export { KyselyAuthenticationRepository } from './infrastructure/authentication.repository.js';
 export { KyselyPasswordResetRepository } from './infrastructure/password-reset.repository.js';
+export { KyselyOwnProfileRepository } from './infrastructure/own-profile.repository.js';
 export {
   OpenIdClientSsoAdapter,
   type OpenIdClientSsoConfig,
@@ -36,12 +37,21 @@ export type {
   PasswordResetRepository,
   ValidResetToken,
 } from './application/password-reset-repository.js';
+export type {
+  OwnProfileAccount,
+  OwnProfileRepository,
+  StudentProfile,
+  UpdateFullNameInput,
+  UpdateFullNameOutcome,
+} from './application/own-profile-repository.js';
 export { ConfirmPasswordResetHandler } from './application/confirm-password-reset.handler.js';
 export { LoginWithPasswordHandler, type LoginSuccess } from './application/login-with-password.handler.js';
 export { LogoutHandler } from './application/logout.handler.js';
+export { GetOwnProfileQuery, type OwnProfile } from './application/queries/get-own-profile.query.js';
 export { GetSessionQuery, type SessionSnapshot } from './application/queries/get-session.query.js';
 export { SsoLoginHandler } from './application/queries/sso-login.query.js';
 export { RequestPasswordResetHandler } from './application/request-password-reset.handler.js';
+export { UpdateOwnProfileHandler } from './application/update-own-profile.handler.js';
 export {
   createAuthenticatedSubjectResolver,
   SESSION_COOKIE_NAME,
@@ -50,3 +60,4 @@ export { SessionIssuer, type IssuedSession } from './application/session-issuer.
 export type { SsoClient, SsoAuthorizationRequest, SsoIdentity } from './application/sso-client.js';
 export { SsoCallbackHandler } from './application/sso-callback.handler.js';
 export { registerAuthRoutes, type AuthRouteDeps } from './interface/http/auth.routes.js';
+export { registerOwnProfileRoutes, type OwnProfileRouteDeps } from './interface/http/own-profile.routes.js';

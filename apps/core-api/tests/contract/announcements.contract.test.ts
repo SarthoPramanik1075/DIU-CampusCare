@@ -96,6 +96,8 @@ function buildTestApp(repository: AnnouncementRepository, now: Date): Promise<Fa
     ssoCallback: undefined as unknown as Container['ssoCallback'],
     requestPasswordReset: undefined as unknown as Container['requestPasswordReset'],
     confirmPasswordReset: undefined as unknown as Container['confirmPasswordReset'],
+    getOwnProfile: undefined as unknown as Container['getOwnProfile'],
+    updateOwnProfile: undefined as unknown as Container['updateOwnProfile'],
   };
 
   return buildApp(container);

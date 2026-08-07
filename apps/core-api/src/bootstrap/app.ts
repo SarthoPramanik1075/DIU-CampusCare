@@ -7,7 +7,7 @@ import { registerCorrelationId } from '../kernel/http/correlation.js';
 import { registerErrorHandling } from '../kernel/http/error-handler.js';
 import { REDACTED_PATHS, REDACTION_CENSOR } from '../kernel/logging/redaction.js';
 import { registerAnnouncementRoutes } from '../modules/config/index.js';
-import { registerAuthRoutes } from '../modules/iam/index.js';
+import { registerAuthRoutes, registerOwnProfileRoutes } from '../modules/iam/index.js';
 
 import type { Container } from './container.js';
 
@@ -66,6 +66,13 @@ export async function buildApp(container: Container): Promise<FastifyInstance> {
     // http:// development, same distinction NODE_ENV already draws
     // elsewhere in this bootstrap.
     cookieSecure: container.config.nodeEnv === 'production',
+  });
+
+  registerOwnProfileRoutes(app, {
+    pep,
+    getSession: container.getSession,
+    getOwnProfile: container.getOwnProfile,
+    updateOwnProfile: container.updateOwnProfile,
   });
 
   return app;
