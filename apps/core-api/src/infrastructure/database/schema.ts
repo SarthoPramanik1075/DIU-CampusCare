@@ -291,6 +291,7 @@ export type AppointmentStatus =
   | 'expired';
 
 export type AppointmentOrigin = 'booked' | 'walk_in';
+export type PaymentState = 'unpaid' | 'paid' | 'waived';
 
 export interface AppointmentTable {
   id: string;
@@ -304,6 +305,7 @@ export interface AppointmentTable {
   serial_number: number;
   origin: AppointmentOrigin;
   status: Generated<AppointmentStatus>;
+  payment_status: Generated<PaymentState>;
   cancelled_at: Date | null;
   cancellation_reason: string | null;
   created_by: string;

@@ -9,7 +9,7 @@ import { REDACTED_PATHS, REDACTION_CENSOR } from '../kernel/logging/redaction.js
 import { registerAnnouncementRoutes } from '../modules/config/index.js';
 import { registerDashboardRoutes } from '../modules/dashboard/index.js';
 import { registerAccountAdminRoutes, registerAuthRoutes, registerOwnProfileRoutes } from '../modules/iam/index.js';
-import { registerClinicSessionRoutes, registerDoctorRoutes, registerDutyRosterRoutes } from '../modules/scheduling/index.js';
+import { registerClinicSessionRoutes, registerDoctorRoutes, registerDutyRosterRoutes, registerUnavailabilityRoutes } from '../modules/scheduling/index.js';
 
 import type { Container } from './container.js';
 
@@ -129,6 +129,16 @@ export async function buildApp(container: Container): Promise<FastifyInstance> {
     interruptSession: container.interruptSession,
     completeSession: container.completeSession,
     cancelSession: container.cancelSession,
+  });
+
+  registerUnavailabilityRoutes(app, {
+    pep,
+    getSession: container.getSession,
+    listUnavailability: container.listUnavailability,
+    previewUnavailability: container.previewUnavailability,
+    confirmUnavailability: container.confirmUnavailability,
+    deleteUnavailability: container.deleteUnavailability,
+    unavailabilityRepository: container.unavailabilityRepository,
   });
 
   return app;

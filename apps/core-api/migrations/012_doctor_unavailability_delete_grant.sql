@@ -1,0 +1,25 @@
+-- =====================================================================
+-- campuscare_core — 012 DELETE grant for scheduling.doctor_unavailability (M2 · Schedules)
+--
+-- One addition, recorded as GRANT-03 in 000_AMENDMENTS.md. Does not
+-- modify 001-011 (an applied migration is immutable — see
+-- packages/db-tools/src/migrate.ts's checksum guard).
+-- =====================================================================
+
+-- API §3.4 `DELETE /api/v1/unavailability/{id}` (FR-SCH-06) removes a
+-- future leave period outright — "Bookings cancelled under this
+-- unavailability are not restored," so this is a real hard delete of the
+-- leave record itself, not a soft-deactivation; the table has no
+-- `is_active`/`deleted_at` column the way `duty_roster` does. Same
+-- category of gap as GRANT-01 (`scheduling.doctor`) and GRANT-02
+-- (`scheduling.session_slot`): 005_grants.sql withholds DELETE from
+-- `campuscare_core_app` everywhere, deliberately, per P4/NFR-RET-01, and
+-- this is the one specified exception this table needs.
+--
+-- Added proactively rather than found live, having now hit this exact
+-- shape of gap twice — the same DDL-05/GRANT-01/GRANT-02 reasoning
+-- applies without needing a third live 500 to prove it: the guard that
+-- actually matters is `startDate` being in the future
+-- (`UNAVAILABILITY_ALREADY_STARTED`), enforced in the handler, not the
+-- database withholding DELETE.
+GRANT DELETE ON scheduling.doctor_unavailability TO campuscare_core_app;

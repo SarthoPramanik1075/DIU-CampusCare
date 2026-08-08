@@ -52,12 +52,14 @@ import {
 import {
   CancelSessionHandler,
   CompleteSessionHandler,
+  ConfirmUnavailabilityHandler,
   CreateClinicSessionHandler,
   CreateDoctorHandler,
   CreateDutyRosterHandler,
   DeactivateDoctorHandler,
   DeleteDoctorHandler,
   DeleteDutyRosterHandler,
+  DeleteUnavailabilityHandler,
   GetClinicSessionQuery,
   GetDoctorQuery,
   GetSessionSlotsQuery,
@@ -65,9 +67,12 @@ import {
   KyselyClinicSessionRepository,
   KyselyDoctorRepository,
   KyselyDutyRosterRepository,
+  KyselyUnavailabilityRepository,
   ListClinicSessionsQuery,
   ListDoctorsQuery,
   ListDutyRostersQuery,
+  ListUnavailabilityQuery,
+  PreviewUnavailabilityHandler,
   StartSessionHandler,
   UpdateClinicSessionHandler,
   UpdateDoctorHandler,
@@ -75,6 +80,7 @@ import {
   type ClinicSessionRepository,
   type DoctorRepository,
   type DutyRosterRepository,
+  type UnavailabilityRepository,
 } from '../modules/scheduling/index.js';
 
 import type { AppConfig } from './config.js';
@@ -138,6 +144,11 @@ export interface Container {
   readonly interruptSession: InterruptSessionHandler;
   readonly completeSession: CompleteSessionHandler;
   readonly cancelSession: CancelSessionHandler;
+  readonly unavailabilityRepository: UnavailabilityRepository;
+  readonly listUnavailability: ListUnavailabilityQuery;
+  readonly previewUnavailability: PreviewUnavailabilityHandler;
+  readonly confirmUnavailability: ConfirmUnavailabilityHandler;
+  readonly deleteUnavailability: DeleteUnavailabilityHandler;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -254,6 +265,12 @@ export function buildContainer(config: AppConfig): Container {
   const completeSession = new CompleteSessionHandler(clinicSessionRepository, auditRecorder, clock, (input) => enqueueNotification(db, input));
   const cancelSession = new CancelSessionHandler(clinicSessionRepository, auditRecorder, (input) => enqueueNotification(db, input));
 
+  const unavailabilityRepository: UnavailabilityRepository = new KyselyUnavailabilityRepository(db);
+  const listUnavailability = new ListUnavailabilityQuery(unavailabilityRepository);
+  const previewUnavailability = new PreviewUnavailabilityHandler(unavailabilityRepository, auditRecorder, clock);
+  const confirmUnavailability = new ConfirmUnavailabilityHandler(unavailabilityRepository, auditRecorder, clock, (input) => enqueueNotification(db, input));
+  const deleteUnavailability = new DeleteUnavailabilityHandler(unavailabilityRepository, auditRecorder, clock);
+
   return {
     config,
     logger,
@@ -307,6 +324,11 @@ export function buildContainer(config: AppConfig): Container {
     interruptSession,
     completeSession,
     cancelSession,
+    unavailabilityRepository,
+    listUnavailability,
+    previewUnavailability,
+    confirmUnavailability,
+    deleteUnavailability,
   };
 }
 

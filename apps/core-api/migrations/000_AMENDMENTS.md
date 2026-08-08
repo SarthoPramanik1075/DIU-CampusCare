@@ -228,6 +228,27 @@ addition, `ON CONFLICT (template_key) DO NOTHING`.
 
 ---
 
+### GRANT-03 · `scheduling.doctor_unavailability` needs `DELETE`, for the same reason as GRANT-01/02 (M2)
+
+**Added proactively**, not found live: `DELETE /api/v1/unavailability/{id}`
+(API §3.4, FR-SCH-06) removes a future leave period outright — the table
+has no `is_active`/`deleted_at` column the way `duty_roster` does, so this
+is a genuine hard delete, not a soft-deactivation. Having now hit exactly
+this shape of gap twice (GRANT-01 for `scheduling.doctor`, GRANT-02 for
+`scheduling.session_slot`), the third instance didn't need a live 500 to
+diagnose — `005_grants.sql` withholds `DELETE` from `campuscare_core_app`
+everywhere by design, and this table has the same kind of specified,
+narrow exception the other two did.
+
+**Applied**, in `012_doctor_unavailability_delete_grant.sql`: `GRANT
+DELETE ON scheduling.doctor_unavailability TO campuscare_core_app`. The
+guard that actually matters — a leave period already underway can't be
+removed — is `UNAVAILABILITY_ALREADY_STARTED`, enforced in the handler by
+checking `startDate` against server time, not the database withholding
+`DELETE`.
+
+---
+
 ## Raised, not taken
 
 ### RST-01 · `duty_roster` overlap is an application check, not a constraint
@@ -248,6 +269,24 @@ which is exactly the distinction DATABASE.md's own DDL already draws by
 giving one table a GiST constraint and not the other. **Must be revisited**
 if duty-roster editing ever becomes a bulk or concurrent operation (e.g. an
 import tool provisioning many doctors' rosters at once).
+
+---
+
+### RST-02 · `doctor_unavailability` overlap is an application check, not a constraint (M2)
+
+**Found by** implementing API §3.4's `UNAVAILABILITY_OVERLAP`. Same shape
+as RST-01: `scheduling.doctor_unavailability.period` is a plain `daterange`
+column with no GiST `EXCLUDE` constraint in DATABASE.md's DDL, so overlap
+(same doctor, intersecting date range) can only be a check-then-insert in
+`confirm-unavailability.handler.ts`.
+
+**Not taken**, for the same reason as RST-01: recording a leave period is
+staff data entry — an Medical Center Staff member confirming one doctor's
+leave — not a concurrent booking-adjacent path. The two-step preview/
+confirm flow itself already re-derives and re-checks the impact
+immediately before the insert (`IMPACT_CHANGED`), which narrows the race
+window further than duty rosters get. **Must be revisited** under the same
+condition as RST-01 — bulk or concurrent leave entry, e.g. an import tool.
 
 ---
 

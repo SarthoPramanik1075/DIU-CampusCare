@@ -90,3 +90,20 @@ export { ListClinicSessionsQuery } from './application/queries/list-clinic-sessi
 export { GetSessionSlotsQuery, type SessionSlotsResult } from './application/queries/get-session-slots.query.js';
 export { KyselyClinicSessionRepository } from './infrastructure/clinic-session.repository.js';
 export { registerClinicSessionRoutes, type ClinicSessionRouteDeps } from './interface/http/clinic-session.routes.js';
+
+export type {
+  AffectedAppointmentDetail,
+  AlternativeAvailabilityEntry,
+  CreateUnavailabilityOutcome,
+  DeleteUnavailabilityOutcome,
+  ImpactAnalysis,
+  PreviewRecord,
+  UnavailabilityRecord,
+  UnavailabilityRepository,
+} from './application/unavailability-repository.js';
+export { PreviewUnavailabilityHandler, doctorNotFoundForUnavailabilityError, type PreviewAffectedAppointment, type PreviewUnavailabilityCommandInput, type PreviewUnavailabilityResult } from './application/preview-unavailability.handler.js';
+export { ConfirmUnavailabilityHandler, type ConfirmUnavailabilityCommandInput, type ConfirmUnavailabilityResult } from './application/confirm-unavailability.handler.js';
+export { DeleteUnavailabilityHandler, type DeleteUnavailabilityInput } from './application/delete-unavailability.handler.js';
+export { ListUnavailabilityQuery } from './application/queries/list-unavailability.query.js';
+export { KyselyUnavailabilityRepository } from './infrastructure/unavailability.repository.js';
+export { registerUnavailabilityRoutes, type UnavailabilityRouteDeps } from './interface/http/unavailability.routes.js';
