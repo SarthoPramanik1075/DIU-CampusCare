@@ -43,7 +43,7 @@ function buildQuery(overrides: { readonly repository?: Partial<ClinicSessionRepo
     createClinicSession: vi.fn(),
     updateClinicSession: vi.fn(),
     listSessionSlots: vi.fn().mockResolvedValue(ITEMS),
-    getQueueSummary: vi.fn(),
+    getQueueSummary: vi.fn(),    listOpenAppointments: vi.fn(),    startSession: vi.fn(),    interruptSession: vi.fn(),    countInConsultation: vi.fn(),    completeSession: vi.fn(),    cancelSession: vi.fn(),
     ...overrides.repository,
   };
   const policyStore = { getRequiredInteger: vi.fn().mockResolvedValue(overrides.cutoffMinutes ?? 0) } as unknown as PolicyStore;

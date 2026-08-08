@@ -4,11 +4,15 @@ import type { AuthorizationRouteConfig, PolicyEnforcementHandler } from '../../.
 import { ValidationError } from '../../../../kernel/errors/domain-error.js';
 import { getCorrelationId } from '../../../../kernel/http/correlation.js';
 import { resolveOwnUserId, type GetSessionQuery } from '../../../iam/index.js';
+import type { CancelSessionHandler } from '../../application/cancel-session.handler.js';
 import type { ClinicSessionListItem } from '../../application/clinic-session-repository.js';
+import type { CompleteSessionHandler } from '../../application/complete-session.handler.js';
 import type { CreateClinicSessionHandler } from '../../application/create-clinic-session.handler.js';
+import type { InterruptSessionHandler } from '../../application/interrupt-session.handler.js';
 import type { ClinicSessionDetail, GetClinicSessionQuery } from '../../application/queries/get-clinic-session.query.js';
 import type { GetSessionSlotsQuery } from '../../application/queries/get-session-slots.query.js';
 import type { ListClinicSessionsQuery } from '../../application/queries/list-clinic-sessions.query.js';
+import type { StartSessionHandler } from '../../application/start-session.handler.js';
 import type { UpdateClinicSessionHandler } from '../../application/update-clinic-session.handler.js';
 
 export interface ClinicSessionRouteDeps {
@@ -19,6 +23,10 @@ export interface ClinicSessionRouteDeps {
   readonly createClinicSession: CreateClinicSessionHandler;
   readonly updateClinicSession: UpdateClinicSessionHandler;
   readonly getSessionSlots: GetSessionSlotsQuery;
+  readonly startSession: StartSessionHandler;
+  readonly interruptSession: InterruptSessionHandler;
+  readonly completeSession: CompleteSessionHandler;
+  readonly cancelSession: CancelSessionHandler;
 }
 
 function isNonEmptyString(value: unknown): value is string {
@@ -164,6 +172,71 @@ export function registerClinicSessionRoutes(app: FastifyInstance, deps: ClinicSe
     const { id } = request.params as { id: string };
     const query = request.query as { availableOnly?: unknown };
     const result = await deps.getSessionSlots.execute(id, query.availableOnly === 'true');
+    if (!result.ok) throw result.error;
+    return result.value;
+  });
+
+  function requireVersion(body: Record<string, unknown>): number {
+    if (typeof body.version !== 'number') {
+      throw new ValidationError({
+        code: 'VALIDATION_FAILED',
+        message: 'Include the current version with your request.',
+        fields: [{ field: 'version', rule: 'VR-92', message: 'Required' }],
+      });
+    }
+    return body.version;
+  }
+
+  function requireReason(body: Record<string, unknown>): string {
+    if (!isNonEmptyString(body.reason)) {
+      throw new ValidationError({
+        code: 'VALIDATION_FAILED',
+        message: 'Enter a reason of at least 10 characters.',
+        fields: [{ field: 'reason', rule: 'VR-93', message: 'Required' }],
+      });
+    }
+    return body.reason;
+  }
+
+  app.post('/api/v1/sessions/:id/start', { preHandler: deps.pep({ resource: 'doctor-schedules-and-sessions', action: 'update' }) }, async (request) => {
+    const { id } = request.params as { id: string };
+    const actorId = await resolveOwnUserId(request, deps.getSession);
+    const body = request.body as Record<string, unknown>;
+    const result = await deps.startSession.execute({ sessionId: id, expectedVersion: requireVersion(body), actorId, correlationId: getCorrelationId(request) });
+    if (!result.ok) throw result.error;
+    return sessionDto(result.value);
+  });
+
+  app.post('/api/v1/sessions/:id/interrupt', { preHandler: deps.pep({ resource: 'doctor-schedules-and-sessions', action: 'update' }) }, async (request) => {
+    const { id } = request.params as { id: string };
+    const actorId = await resolveOwnUserId(request, deps.getSession);
+    const body = request.body as Record<string, unknown>;
+    const result = await deps.interruptSession.execute({ sessionId: id, reason: requireReason(body), expectedVersion: requireVersion(body), actorId, correlationId: getCorrelationId(request) });
+    if (!result.ok) throw result.error;
+    return result.value;
+  });
+
+  app.post('/api/v1/sessions/:id/complete', { preHandler: deps.pep({ resource: 'doctor-schedules-and-sessions', action: 'update' }) }, async (request) => {
+    const { id } = request.params as { id: string };
+    const actorId = await resolveOwnUserId(request, deps.getSession);
+    const body = request.body as Record<string, unknown>;
+    const result = await deps.completeSession.execute({ sessionId: id, expectedVersion: requireVersion(body), actorId, correlationId: getCorrelationId(request) });
+    if (!result.ok) throw result.error;
+    return result.value;
+  });
+
+  app.post('/api/v1/sessions/:id/cancel', { preHandler: deps.pep({ resource: 'doctor-schedules-and-sessions', action: 'update' }) }, async (request) => {
+    const { id } = request.params as { id: string };
+    const actorId = await resolveOwnUserId(request, deps.getSession);
+    const body = request.body as Record<string, unknown>;
+    const result = await deps.cancelSession.execute({
+      sessionId: id,
+      reason: requireReason(body),
+      confirmedImpact: body.confirmedImpact === true,
+      expectedVersion: requireVersion(body),
+      actorId,
+      correlationId: getCorrelationId(request),
+    });
     if (!result.ok) throw result.error;
     return result.value;
   });

@@ -3,18 +3,24 @@ import { uuidv7 } from 'uuidv7';
 
 import type { Database } from '../../../infrastructure/database/client.js';
 import type {
+  AffectedAppointment,
+  CancelSessionOutcome,
   ClinicSessionListFilter,
   ClinicSessionListItem,
   ClinicSessionRepository,
+  CompleteSessionOutcome,
   CreateClinicSessionInput,
   CreateClinicSessionResult,
+  InterruptSessionOutcome,
   QueueSummary,
   ServiceCalendarClosure,
   SessionSlotItem,
   SessionStatus,
+  StartSessionOutcome,
   UpdateClinicSessionInput,
   UpdateClinicSessionOutcome,
 } from '../application/clinic-session-repository.js';
+import { canCancel, canComplete, canInterrupt, canStart } from '../domain/clinic-session.js';
 
 /** VR-19's `ex_session_no_overlap` GiST exclusion constraint — race-free by construction. */
 const PG_EXCLUSION_VIOLATION = '23P01';
@@ -25,6 +31,13 @@ function isExclusionViolation(error: unknown): boolean {
 
 /** Occupies a place in the session's capacity — mirrors the appointment lifecycle statuses that are not a cancellation/no-show/expiry. */
 const ACTIVE_APPOINTMENT_STATUSES = ['booked', 'checked_in', 'waiting', 'in_consultation', 'completed'] as const;
+
+/** "Still open" — not yet completed and not already in a terminal (cancelled/no-show/expired) state. Used for interrupt's remaining-patients list and cancel's bulk transition. */
+const OPEN_APPOINTMENT_STATUSES = ['booked', 'checked_in', 'waiting', 'in_consultation'] as const;
+
+function toAffectedAppointment(row: { id: string; appointment_ref: string; student_id: string | null; serial_number: number }): AffectedAppointment {
+  return { appointmentId: row.id, appointmentRef: row.appointment_ref, studentId: row.student_id, serialNumber: row.serial_number };
+}
 
 interface ClinicSessionJoinRow {
   id: string;
@@ -332,5 +345,151 @@ export class KyselyClinicSessionRepository implements ClinicSessionRepository {
       noShow: counts.get('no_show') ?? 0,
       inConsultation: counts.get('in_consultation') ?? 0,
     };
+  }
+
+  async listOpenAppointments(sessionId: string): Promise<readonly AffectedAppointment[]> {
+    const rows = await this.db
+      .selectFrom('queueing.appointment')
+      .select(['id', 'appointment_ref', 'student_id', 'serial_number'])
+      .where('clinic_session_id', '=', sessionId)
+      .where('status', 'in', OPEN_APPOINTMENT_STATUSES)
+      .execute();
+    return rows.map(toAffectedAppointment);
+  }
+
+  /** EC-02/FR-APT-25 — resuming from `interrupted` must never overwrite the original `actually_started_at`. */
+  async startSession(sessionId: string, expectedVersion: number, now: Date): Promise<StartSessionOutcome> {
+    const statusRow = await this.db.selectFrom('scheduling.clinic_session').select('status').where('id', '=', sessionId).executeTakeFirst();
+    if (statusRow === undefined) return { outcome: 'not_found' };
+    if (!canStart(statusRow.status)) return { outcome: 'invalid_transition' };
+
+    const row = await this.db
+      .updateTable('scheduling.clinic_session')
+      .set((eb) => ({ status: 'started', actually_started_at: eb.fn.coalesce('actually_started_at', eb.val(now)) }))
+      .where('id', '=', sessionId)
+      .where('version', '=', expectedVersion)
+      .returning('id')
+      .executeTakeFirst();
+
+    if (row === undefined) {
+      const stillExists = await this.db.selectFrom('scheduling.clinic_session').select('id').where('id', '=', sessionId).executeTakeFirst();
+      return stillExists === undefined ? { outcome: 'not_found' } : { outcome: 'stale' };
+    }
+
+    const session = await this.findClinicSessionById(row.id);
+    if (session === null) throw new Error(`scheduling.clinic_session ${row.id} vanished immediately after its own update`);
+    return { outcome: 'started', session };
+  }
+
+  /** EC-04 — bookings are never auto-cancelled; only reported so staff can decide (resume, reassign, or cancel). */
+  async interruptSession(sessionId: string, expectedVersion: number, reason: string): Promise<InterruptSessionOutcome> {
+    const statusRow = await this.db.selectFrom('scheduling.clinic_session').select('status').where('id', '=', sessionId).executeTakeFirst();
+    if (statusRow === undefined) return { outcome: 'not_found' };
+    if (!canInterrupt(statusRow.status)) return { outcome: 'invalid_transition' };
+
+    const remainingRows = await this.db
+      .selectFrom('queueing.appointment')
+      .select(['id', 'appointment_ref', 'student_id', 'serial_number'])
+      .where('clinic_session_id', '=', sessionId)
+      .where('status', 'in', OPEN_APPOINTMENT_STATUSES)
+      .execute();
+
+    const row = await this.db
+      .updateTable('scheduling.clinic_session')
+      .set({ status: 'interrupted', change_reason: reason })
+      .where('id', '=', sessionId)
+      .where('version', '=', expectedVersion)
+      .returning('id')
+      .executeTakeFirst();
+
+    if (row === undefined) {
+      const stillExists = await this.db.selectFrom('scheduling.clinic_session').select('id').where('id', '=', sessionId).executeTakeFirst();
+      return stillExists === undefined ? { outcome: 'not_found' } : { outcome: 'stale' };
+    }
+
+    const session = await this.findClinicSessionById(row.id);
+    if (session === null) throw new Error(`scheduling.clinic_session ${row.id} vanished immediately after its own update`);
+    return { outcome: 'interrupted', session, remainingAppointments: remainingRows.map(toAffectedAppointment) };
+  }
+
+  async countInConsultation(sessionId: string): Promise<number> {
+    const row = await this.db
+      .selectFrom('queueing.appointment')
+      .select(({ fn }) => fn.countAll<string>().as('count'))
+      .where('clinic_session_id', '=', sessionId)
+      .where('status', '=', 'in_consultation')
+      .executeTakeFirst();
+    return Number(row?.count ?? '0');
+  }
+
+  /** BR-22/EC-13 — only appointments still `booked` transition to `expired`; a patient who checked in or was already seen is untouched by this call. */
+  async completeSession(sessionId: string, expectedVersion: number, now: Date): Promise<CompleteSessionOutcome> {
+    const statusRow = await this.db.selectFrom('scheduling.clinic_session').select('status').where('id', '=', sessionId).executeTakeFirst();
+    if (statusRow === undefined) return { outcome: 'not_found' };
+    if (!canComplete(statusRow.status)) return { outcome: 'invalid_transition' };
+    if ((await this.countInConsultation(sessionId)) > 0) return { outcome: 'consultation_in_progress' };
+
+    const expiredAppointments = await this.db.transaction().execute(async (trx) => {
+      const row = await trx
+        .updateTable('scheduling.clinic_session')
+        .set({ status: 'completed', actually_ended_at: now })
+        .where('id', '=', sessionId)
+        .where('version', '=', expectedVersion)
+        .returning('id')
+        .executeTakeFirst();
+      if (row === undefined) return undefined;
+
+      return trx
+        .updateTable('queueing.appointment')
+        .set({ status: 'expired' })
+        .where('clinic_session_id', '=', sessionId)
+        .where('status', '=', 'booked')
+        .returning(['id', 'appointment_ref', 'student_id', 'serial_number'])
+        .execute();
+    });
+
+    if (expiredAppointments === undefined) {
+      const stillExists = await this.db.selectFrom('scheduling.clinic_session').select('id').where('id', '=', sessionId).executeTakeFirst();
+      return stillExists === undefined ? { outcome: 'not_found' } : { outcome: 'stale' };
+    }
+
+    const session = await this.findClinicSessionById(sessionId);
+    if (session === null) throw new Error(`scheduling.clinic_session ${sessionId} vanished immediately after its own update`);
+    return { outcome: 'completed', session, expiredAppointments: expiredAppointments.map(toAffectedAppointment) };
+  }
+
+  /** BR-26/BR-27 — every open appointment is cancelled with the fixed reason "Doctor Unavailable"; the caller's own `reason` is recorded against the session, not the appointment. */
+  async cancelSession(sessionId: string, expectedVersion: number, reason: string): Promise<CancelSessionOutcome> {
+    const statusRow = await this.db.selectFrom('scheduling.clinic_session').select('status').where('id', '=', sessionId).executeTakeFirst();
+    if (statusRow === undefined) return { outcome: 'not_found' };
+    if (!canCancel(statusRow.status)) return { outcome: 'invalid_transition' };
+
+    const cancelledAppointments = await this.db.transaction().execute(async (trx) => {
+      const row = await trx
+        .updateTable('scheduling.clinic_session')
+        .set({ status: 'cancelled', change_reason: reason })
+        .where('id', '=', sessionId)
+        .where('version', '=', expectedVersion)
+        .returning('id')
+        .executeTakeFirst();
+      if (row === undefined) return undefined;
+
+      return trx
+        .updateTable('queueing.appointment')
+        .set((eb) => ({ status: 'cancelled', cancelled_at: eb.val(new Date()), cancellation_reason: 'Doctor Unavailable' }))
+        .where('clinic_session_id', '=', sessionId)
+        .where('status', 'in', OPEN_APPOINTMENT_STATUSES)
+        .returning(['id', 'appointment_ref', 'student_id', 'serial_number'])
+        .execute();
+    });
+
+    if (cancelledAppointments === undefined) {
+      const stillExists = await this.db.selectFrom('scheduling.clinic_session').select('id').where('id', '=', sessionId).executeTakeFirst();
+      return stillExists === undefined ? { outcome: 'not_found' } : { outcome: 'stale' };
+    }
+
+    const session = await this.findClinicSessionById(sessionId);
+    if (session === null) throw new Error(`scheduling.clinic_session ${sessionId} vanished immediately after its own update`);
+    return { outcome: 'cancelled', session, cancelledAppointments: cancelledAppointments.map(toAffectedAppointment) };
   }
 }

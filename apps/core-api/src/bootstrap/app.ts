@@ -125,6 +125,10 @@ export async function buildApp(container: Container): Promise<FastifyInstance> {
     createClinicSession: container.createClinicSession,
     updateClinicSession: container.updateClinicSession,
     getSessionSlots: container.getSessionSlots,
+    startSession: container.startSession,
+    interruptSession: container.interruptSession,
+    completeSession: container.completeSession,
+    cancelSession: container.cancelSession,
   });
 
   return app;

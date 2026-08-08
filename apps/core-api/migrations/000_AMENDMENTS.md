@@ -210,6 +210,24 @@ is the backstop if it somehow does.
 
 ---
 
+### DDL-06 · no notification templates for the three session-lifecycle events (M2)
+
+API §3.3's `interrupt`, `complete` and `cancel` endpoints each queue one
+notification per affected appointment (FR-SCH-08/09, EC-04, EC-13), and
+`notification.notification` requires a `template_id` FK — the same
+category of gap DDL-03 and the `doctor_unavailability_cancelled` template
+(DDL-05) already resolved once each. `doctor_unavailability_cancelled`
+itself doesn't fit: it is worded around a doctor going on leave, not a
+specific session being interrupted, cancelled outright, or ending with
+stragglers still waiting.
+
+**Applied**, in `011_session_lifecycle_notification_templates.sql`: three
+templates — `session_interrupted`, `session_cancelled`,
+`session_completed_expired` — seeded the same way as every prior template
+addition, `ON CONFLICT (template_key) DO NOTHING`.
+
+---
+
 ## Raised, not taken
 
 ### RST-01 · `duty_roster` overlap is an application check, not a constraint

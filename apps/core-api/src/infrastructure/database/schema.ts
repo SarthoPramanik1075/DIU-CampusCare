@@ -304,7 +304,11 @@ export interface AppointmentTable {
   serial_number: number;
   origin: AppointmentOrigin;
   status: Generated<AppointmentStatus>;
+  cancelled_at: Date | null;
+  cancellation_reason: string | null;
   created_by: string;
+  updated_at: Generated<Date>;
+  version: Generated<number>;
 }
 
 // ---------------------------------------------------------------------

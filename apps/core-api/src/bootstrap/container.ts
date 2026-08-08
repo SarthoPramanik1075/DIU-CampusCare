@@ -50,6 +50,8 @@ import {
   type SsoClient,
 } from '../modules/iam/index.js';
 import {
+  CancelSessionHandler,
+  CompleteSessionHandler,
   CreateClinicSessionHandler,
   CreateDoctorHandler,
   CreateDutyRosterHandler,
@@ -59,12 +61,14 @@ import {
   GetClinicSessionQuery,
   GetDoctorQuery,
   GetSessionSlotsQuery,
+  InterruptSessionHandler,
   KyselyClinicSessionRepository,
   KyselyDoctorRepository,
   KyselyDutyRosterRepository,
   ListClinicSessionsQuery,
   ListDoctorsQuery,
   ListDutyRostersQuery,
+  StartSessionHandler,
   UpdateClinicSessionHandler,
   UpdateDoctorHandler,
   UpdateDutyRosterHandler,
@@ -130,6 +134,10 @@ export interface Container {
   readonly createClinicSession: CreateClinicSessionHandler;
   readonly updateClinicSession: UpdateClinicSessionHandler;
   readonly getSessionSlots: GetSessionSlotsQuery;
+  readonly startSession: StartSessionHandler;
+  readonly interruptSession: InterruptSessionHandler;
+  readonly completeSession: CompleteSessionHandler;
+  readonly cancelSession: CancelSessionHandler;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -241,6 +249,10 @@ export function buildContainer(config: AppConfig): Container {
   const createClinicSession = new CreateClinicSessionHandler(clinicSessionRepository, policyStore, auditRecorder, clock);
   const updateClinicSession = new UpdateClinicSessionHandler(clinicSessionRepository, auditRecorder, clock);
   const getSessionSlots = new GetSessionSlotsQuery(clinicSessionRepository, policyStore);
+  const startSession = new StartSessionHandler(clinicSessionRepository, auditRecorder, clock);
+  const interruptSession = new InterruptSessionHandler(clinicSessionRepository, auditRecorder, (input) => enqueueNotification(db, input));
+  const completeSession = new CompleteSessionHandler(clinicSessionRepository, auditRecorder, clock, (input) => enqueueNotification(db, input));
+  const cancelSession = new CancelSessionHandler(clinicSessionRepository, auditRecorder, (input) => enqueueNotification(db, input));
 
   return {
     config,
@@ -291,6 +303,10 @@ export function buildContainer(config: AppConfig): Container {
     createClinicSession,
     updateClinicSession,
     getSessionSlots,
+    startSession,
+    interruptSession,
+    completeSession,
+    cancelSession,
   };
 }
 

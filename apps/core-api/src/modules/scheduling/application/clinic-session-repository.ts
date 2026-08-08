@@ -92,6 +92,39 @@ export interface QueueSummary {
   readonly inConsultation: number;
 }
 
+/** An appointment affected by a lifecycle transition — enough to notify its owner (FR-SCH-08/09), never any clinical detail (BR-04). */
+export interface AffectedAppointment {
+  readonly appointmentId: string;
+  readonly appointmentRef: string;
+  readonly studentId: string | null;
+  readonly serialNumber: number;
+}
+
+export type StartSessionOutcome =
+  | { readonly outcome: 'started'; readonly session: ClinicSessionListItem }
+  | { readonly outcome: 'invalid_transition' }
+  | { readonly outcome: 'stale' }
+  | { readonly outcome: 'not_found' };
+
+export type InterruptSessionOutcome =
+  | { readonly outcome: 'interrupted'; readonly session: ClinicSessionListItem; readonly remainingAppointments: readonly AffectedAppointment[] }
+  | { readonly outcome: 'invalid_transition' }
+  | { readonly outcome: 'stale' }
+  | { readonly outcome: 'not_found' };
+
+export type CompleteSessionOutcome =
+  | { readonly outcome: 'completed'; readonly session: ClinicSessionListItem; readonly expiredAppointments: readonly AffectedAppointment[] }
+  | { readonly outcome: 'invalid_transition' }
+  | { readonly outcome: 'consultation_in_progress' }
+  | { readonly outcome: 'stale' }
+  | { readonly outcome: 'not_found' };
+
+export type CancelSessionOutcome =
+  | { readonly outcome: 'cancelled'; readonly session: ClinicSessionListItem; readonly cancelledAppointments: readonly AffectedAppointment[] }
+  | { readonly outcome: 'invalid_transition' }
+  | { readonly outcome: 'stale' }
+  | { readonly outcome: 'not_found' };
+
 /**
  * Port for API §3.3's clinic-session administration. VR-19 (no two
  * sessions for a doctor may overlap) is enforced by the
@@ -112,4 +145,15 @@ export interface ClinicSessionRepository {
   /** Only `is_online_bookable` slots (API §3.3's own documented filter) — filtering to `availableOnly` is the query layer's job, not the repository's, so callers can still compute a summary over the full set. */
   listSessionSlots(sessionId: string): Promise<readonly SessionSlotItem[]>;
   getQueueSummary(sessionId: string): Promise<QueueSummary>;
+  /** Every appointment not yet in a terminal state — the "would be affected" preview `POST /sessions/{id}/cancel` shows before `confirmedImpact` is required (API §3.3's `CONFIRMATION_REQUIRED`). A read, never a mutation. */
+  listOpenAppointments(sessionId: string): Promise<readonly AffectedAppointment[]>;
+  /** EC-02/FR-APT-25 — `canStart` (domain) allows both `scheduled` and `interrupted`; the actual start time is only ever set once, never overwritten on a resume. */
+  startSession(sessionId: string, expectedVersion: number, now: Date): Promise<StartSessionOutcome>;
+  /** EC-04 — bookings are never auto-cancelled here; only listed for staff to act on. */
+  interruptSession(sessionId: string, expectedVersion: number, reason: string): Promise<InterruptSessionOutcome>;
+  countInConsultation(sessionId: string): Promise<number>;
+  /** BR-22/EC-13 — only appointments still `booked` transition to `expired`; no penalty, and it is never `no_show` (FR-APT-32 keeps that a staff decision). */
+  completeSession(sessionId: string, expectedVersion: number, now: Date): Promise<CompleteSessionOutcome>;
+  /** BR-26/BR-27 — every non-terminal appointment in the session transitions to `cancelled` with the fixed reason "Doctor Unavailable" (the caller's own `reason` is recorded against the session, not the appointment). */
+  cancelSession(sessionId: string, expectedVersion: number, reason: string): Promise<CancelSessionOutcome>;
 }

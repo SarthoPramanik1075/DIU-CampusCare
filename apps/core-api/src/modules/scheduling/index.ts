@@ -63,19 +63,28 @@ export { KyselyDutyRosterRepository } from './infrastructure/duty-roster.reposit
 export { registerDutyRosterRoutes, type DutyRosterRouteDeps } from './interface/http/duty-roster.routes.js';
 
 export type {
+  AffectedAppointment,
+  CancelSessionOutcome,
   ClinicSessionListFilter,
   ClinicSessionListItem,
   ClinicSessionRepository,
+  CompleteSessionOutcome,
   CreateClinicSessionInput,
   CreateClinicSessionResult,
+  InterruptSessionOutcome,
   QueueSummary,
   ServiceCalendarClosure,
   SessionSlotItem,
+  StartSessionOutcome,
   UpdateClinicSessionInput,
   UpdateClinicSessionOutcome,
 } from './application/clinic-session-repository.js';
 export { CreateClinicSessionHandler, doctorNotFoundForSessionError, type CreateClinicSessionCommandInput } from './application/create-clinic-session.handler.js';
 export { UpdateClinicSessionHandler, clinicSessionNotFoundError, type UpdateClinicSessionCommandInput } from './application/update-clinic-session.handler.js';
+export { StartSessionHandler, clinicSessionNotFoundForLifecycleError, type StartSessionCommandInput } from './application/start-session.handler.js';
+export { InterruptSessionHandler, type InterruptSessionCommandInput, type InterruptSessionResult } from './application/interrupt-session.handler.js';
+export { CompleteSessionHandler, type CompleteSessionCommandInput, type CompleteSessionResult } from './application/complete-session.handler.js';
+export { CancelSessionHandler, type CancelSessionCommandInput, type CancelSessionResult } from './application/cancel-session.handler.js';
 export { GetClinicSessionQuery, type ClinicSessionDetail } from './application/queries/get-clinic-session.query.js';
 export { ListClinicSessionsQuery } from './application/queries/list-clinic-sessions.query.js';
 export { GetSessionSlotsQuery, type SessionSlotsResult } from './application/queries/get-session-slots.query.js';

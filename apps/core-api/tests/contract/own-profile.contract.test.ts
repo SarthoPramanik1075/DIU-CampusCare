@@ -267,7 +267,7 @@ async function buildTestApp(): Promise<{ app: FastifyInstance }> {
     listDutyRosters: undefined as unknown as Container['listDutyRosters'],
     createDutyRoster: undefined as unknown as Container['createDutyRoster'],
     updateDutyRoster: undefined as unknown as Container['updateDutyRoster'],
-    deleteDutyRoster: undefined as unknown as Container['deleteDutyRoster'],    listClinicSessions: undefined as unknown as Container['listClinicSessions'],    getClinicSession: undefined as unknown as Container['getClinicSession'],    createClinicSession: undefined as unknown as Container['createClinicSession'],    updateClinicSession: undefined as unknown as Container['updateClinicSession'],    getSessionSlots: undefined as unknown as Container['getSessionSlots'],
+    deleteDutyRoster: undefined as unknown as Container['deleteDutyRoster'],    listClinicSessions: undefined as unknown as Container['listClinicSessions'],    getClinicSession: undefined as unknown as Container['getClinicSession'],    createClinicSession: undefined as unknown as Container['createClinicSession'],    updateClinicSession: undefined as unknown as Container['updateClinicSession'],    getSessionSlots: undefined as unknown as Container['getSessionSlots'],    startSession: undefined as unknown as Container['startSession'],    interruptSession: undefined as unknown as Container['interruptSession'],    completeSession: undefined as unknown as Container['completeSession'],    cancelSession: undefined as unknown as Container['cancelSession'],
   };
 
   return { app: await buildApp(container) };
