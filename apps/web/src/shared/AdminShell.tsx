@@ -15,14 +15,13 @@ export interface AdminShellProps {
 /**
  * FRONTEND §2.4's admin rail is specified with four groups (Operations,
  * People, Configuration, plus Break-glass on its own) spanning nine
- * destinations. Only Accounts (A-02/A-03/A-04) is a real screen this
- * milestone — Health (A-01), Audit log (A-08), Exports (A-11), a
- * stand-alone Roles list, Settings (A-05), the service calendar (A-06),
- * Announcements admin (A-07) and Break-glass (A-09) are all later
- * milestones. A group heading with no links, or a link to a page that
- * doesn't exist yet, is exactly the placeholder chrome this project
- * refuses to ship — so only the People group renders, with its one real
- * destination.
+ * destinations. Accounts (A-02/A-03/A-04) and the service calendar (A-06,
+ * M2) are the only real screens so far — Health (A-01), Audit log (A-08),
+ * Exports (A-11), a stand-alone Roles list, Settings (A-05), Announcements
+ * admin (A-07) and Break-glass (A-09) are all later milestones. A group
+ * heading with no links, or a link to a page that doesn't exist yet, is
+ * exactly the placeholder chrome this project refuses to ship — so only
+ * People and Configuration render, each with its one real destination.
  */
 export function AdminShell({ session, pageTitle, children }: AdminShellProps): JSX.Element {
   const logout = useLogout();
@@ -42,6 +41,14 @@ export function AdminShell({ session, pageTitle, children }: AdminShellProps): J
             activeProps={{ className: 'cc-admin-rail__link cc-admin-rail__link--active' }}
           >
             Accounts
+          </Link>
+          <p className="cc-admin-rail__group-label">Configuration</p>
+          <Link
+            to="/admin/calendar"
+            className="cc-admin-rail__link"
+            activeProps={{ className: 'cc-admin-rail__link cc-admin-rail__link--active' }}
+          >
+            Calendar
           </Link>
         </nav>
         <div className="cc-admin-rail__footer">

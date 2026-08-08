@@ -6,6 +6,7 @@ import { fetchSession, type SessionDto } from '../features/auth/api.js';
 import { ApiError } from '../infrastructure/api-client.js';
 import { AccountDetailPage } from '../routes/AccountDetailPage.js';
 import { AccountsListPage, type AccountsListSearch } from '../routes/AccountsListPage.js';
+import { AdminCalendarPage } from '../routes/AdminCalendarPage.js';
 import { ConfirmResetPage } from '../routes/ConfirmResetPage.js';
 import { DoctorDetailPage } from '../routes/DoctorDetailPage.js';
 import { DoctorsListPage, type DoctorsListSearch } from '../routes/DoctorsListPage.js';
@@ -189,6 +190,35 @@ const accountDetailRoute = createRoute({
   },
 });
 
+const adminCalendarRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/calendar',
+  validateSearch: (search: Record<string, unknown>): { month?: string } =>
+    typeof search.month === 'string' ? { month: search.month } : {},
+  loader: async () => {
+    const session = await requireSession('/admin/calendar');
+    // A-06 is ADM-only (FRONTEND §2.4).
+    if (!session.roles.includes('ADM')) {
+      throw redirect({ to: '/no-access' });
+    }
+    return { session };
+  },
+  component: () => {
+    const { session } = adminCalendarRoute.useLoaderData();
+    const { month } = adminCalendarRoute.useSearch();
+    const navigate = adminCalendarRoute.useNavigate();
+    return (
+      <AdminCalendarPage
+        session={session}
+        month={month}
+        onMonthChange={(next) => {
+          void navigate({ search: next === undefined ? {} : { month: next } });
+        }}
+      />
+    );
+  },
+});
+
 function isBooleanFlag(value: unknown): value is boolean {
   return value === true || value === false;
 }
@@ -344,6 +374,7 @@ const routeTree = rootRoute.addChildren([
   operatorHomeRoute,
   accountsListRoute,
   accountDetailRoute,
+  adminCalendarRoute,
   doctorsListRoute,
   doctorDetailRoute,
   dutyRosterRoute,
