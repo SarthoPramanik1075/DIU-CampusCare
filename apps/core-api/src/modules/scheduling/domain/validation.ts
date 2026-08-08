@@ -22,6 +22,21 @@ export function isValidTimeOrder(startsAt: Date, endsAt: Date): boolean {
   return endsAt.getTime() > startsAt.getTime();
 }
 
+/** VR-10, duty-roster form — `HH:mm` local wall-clock strings sort correctly as plain strings (zero-padded, fixed width), so no `Date` parsing is needed. */
+export function isValidLocalTimeOrder(startsAtLocal: string, endsAtLocal: string): boolean {
+  return endsAtLocal > startsAtLocal;
+}
+
+/** FR-SCH-02 — a roster's weekday is an integer 0–6 (0 = Sunday, the Postgres `DOW`/API convention used throughout). */
+export function isValidWeekday(weekday: number): boolean {
+  return Number.isInteger(weekday) && weekday >= 0 && weekday <= 6;
+}
+
+/** API §3.2 — a roster's effective range: `effectiveTo`, when given, must be on or after `effectiveFrom`. */
+export function isValidEffectiveRange(effectiveFrom: string, effectiveTo: string | null): boolean {
+  return effectiveTo === null || effectiveTo >= effectiveFrom;
+}
+
 /** VR-11 — session duration must be at least one slot length. */
 export function isAtLeastOneSlot(startsAt: Date, endsAt: Date, slotLengthMinutes: number): boolean {
   const durationMinutes = (endsAt.getTime() - startsAt.getTime()) / (1000 * 60);

@@ -414,6 +414,10 @@ async function buildTestApp(): Promise<{ app: FastifyInstance; accountAdminRepos
     updateDoctor: undefined as unknown as Container['updateDoctor'],
     deactivateDoctor: undefined as unknown as Container['deactivateDoctor'],
     deleteDoctor: undefined as unknown as Container['deleteDoctor'],
+    listDutyRosters: undefined as unknown as Container['listDutyRosters'],
+    createDutyRoster: undefined as unknown as Container['createDutyRoster'],
+    updateDutyRoster: undefined as unknown as Container['updateDutyRoster'],
+    deleteDutyRoster: undefined as unknown as Container['deleteDutyRoster'],
   };
 
   return { app: await buildApp(container), accountAdminRepository };

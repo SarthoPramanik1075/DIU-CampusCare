@@ -11,12 +11,15 @@ export {
   isAtLeastOneSlot,
   isNonEmptyAfterTrim,
   isNotInThePast,
+  isValidEffectiveRange,
+  isValidLocalTimeOrder,
   isValidPublicationWindowDays,
   isValidReason,
   isValidSlotLength,
   isValidTimeOrder,
   isValidUnavailabilityRange,
   isValidWalkInAllocation,
+  isValidWeekday,
   requiresChangeReason,
 } from './domain/validation.js';
 
@@ -41,3 +44,20 @@ export { GetDoctorQuery } from './application/queries/get-doctor.query.js';
 export { ListDoctorsQuery, type ListDoctorsInput } from './application/queries/list-doctors.query.js';
 export { KyselyDoctorRepository } from './infrastructure/doctor.repository.js';
 export { registerDoctorRoutes, type DoctorRouteDeps } from './interface/http/doctor.routes.js';
+
+export type {
+  CreateDutyRosterInput,
+  CreateDutyRosterResult,
+  DeleteDutyRosterOutcome,
+  DutyRoster,
+  DutyRosterListFilter,
+  DutyRosterRepository,
+  UpdateDutyRosterInput,
+  UpdateDutyRosterOutcome,
+} from './application/duty-roster-repository.js';
+export { CreateDutyRosterHandler, doctorNotFoundForRosterError, type CreateDutyRosterCommandInput } from './application/create-duty-roster.handler.js';
+export { UpdateDutyRosterHandler, dutyRosterNotFoundError, type UpdateDutyRosterCommandInput } from './application/update-duty-roster.handler.js';
+export { DeleteDutyRosterHandler, type DeleteDutyRosterInput } from './application/delete-duty-roster.handler.js';
+export { ListDutyRostersQuery } from './application/queries/list-duty-rosters.query.js';
+export { KyselyDutyRosterRepository } from './infrastructure/duty-roster.repository.js';
+export { registerDutyRosterRoutes, type DutyRosterRouteDeps } from './interface/http/duty-roster.routes.js';

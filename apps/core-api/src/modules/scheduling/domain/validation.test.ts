@@ -3,11 +3,14 @@ import { describe, expect, it } from 'vitest';
 import {
   isAtLeastOneSlot,
   isNotInThePast,
+  isValidEffectiveRange,
+  isValidLocalTimeOrder,
   isValidPublicationWindowDays,
   isValidSlotLength,
   isValidTimeOrder,
   isValidUnavailabilityRange,
   isValidWalkInAllocation,
+  isValidWeekday,
   requiresChangeReason,
 } from './validation.js';
 
@@ -95,6 +98,42 @@ describe('isValidUnavailabilityRange — VR-16', () => {
 
   it('rejects a range entirely in the past', () => {
     expect(isValidUnavailabilityRange('2026-08-01', '2026-08-05', '2026-08-10')).toBe(false);
+  });
+});
+
+describe('isValidLocalTimeOrder — VR-10, duty-roster form', () => {
+  it('requires end strictly after start', () => {
+    expect(isValidLocalTimeOrder('09:00', '13:00')).toBe(true);
+    expect(isValidLocalTimeOrder('09:00', '09:00')).toBe(false);
+    expect(isValidLocalTimeOrder('13:00', '09:00')).toBe(false);
+  });
+});
+
+describe('isValidWeekday — FR-SCH-02', () => {
+  it('accepts 0–6 inclusive', () => {
+    expect(isValidWeekday(0)).toBe(true);
+    expect(isValidWeekday(6)).toBe(true);
+  });
+
+  it('rejects out-of-range and non-integer values', () => {
+    expect(isValidWeekday(-1)).toBe(false);
+    expect(isValidWeekday(7)).toBe(false);
+    expect(isValidWeekday(1.5)).toBe(false);
+  });
+});
+
+describe('isValidEffectiveRange — API §3.2', () => {
+  it('accepts a null effectiveTo (open-ended)', () => {
+    expect(isValidEffectiveRange('2026-08-01', null)).toBe(true);
+  });
+
+  it('accepts effectiveTo on or after effectiveFrom', () => {
+    expect(isValidEffectiveRange('2026-08-01', '2026-08-01')).toBe(true);
+    expect(isValidEffectiveRange('2026-08-01', '2026-12-31')).toBe(true);
+  });
+
+  it('rejects effectiveTo before effectiveFrom', () => {
+    expect(isValidEffectiveRange('2026-08-01', '2026-07-01')).toBe(false);
   });
 });
 

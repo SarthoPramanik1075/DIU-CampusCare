@@ -51,13 +51,19 @@ import {
 } from '../modules/iam/index.js';
 import {
   CreateDoctorHandler,
+  CreateDutyRosterHandler,
   DeactivateDoctorHandler,
   DeleteDoctorHandler,
+  DeleteDutyRosterHandler,
   GetDoctorQuery,
   KyselyDoctorRepository,
+  KyselyDutyRosterRepository,
   ListDoctorsQuery,
+  ListDutyRostersQuery,
   UpdateDoctorHandler,
+  UpdateDutyRosterHandler,
   type DoctorRepository,
+  type DutyRosterRepository,
 } from '../modules/scheduling/index.js';
 
 import type { AppConfig } from './config.js';
@@ -108,6 +114,10 @@ export interface Container {
   readonly updateDoctor: UpdateDoctorHandler;
   readonly deactivateDoctor: DeactivateDoctorHandler;
   readonly deleteDoctor: DeleteDoctorHandler;
+  readonly listDutyRosters: ListDutyRostersQuery;
+  readonly createDutyRoster: CreateDutyRosterHandler;
+  readonly updateDutyRoster: UpdateDutyRosterHandler;
+  readonly deleteDutyRoster: DeleteDutyRosterHandler;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -207,6 +217,12 @@ export function buildContainer(config: AppConfig): Container {
   const deactivateDoctor = new DeactivateDoctorHandler(doctorRepository, auditRecorder);
   const deleteDoctor = new DeleteDoctorHandler(doctorRepository, auditRecorder);
 
+  const dutyRosterRepository: DutyRosterRepository = new KyselyDutyRosterRepository(db);
+  const listDutyRosters = new ListDutyRostersQuery(dutyRosterRepository);
+  const createDutyRoster = new CreateDutyRosterHandler(dutyRosterRepository, auditRecorder);
+  const updateDutyRoster = new UpdateDutyRosterHandler(dutyRosterRepository, auditRecorder);
+  const deleteDutyRoster = new DeleteDutyRosterHandler(dutyRosterRepository, auditRecorder);
+
   return {
     config,
     logger,
@@ -247,6 +263,10 @@ export function buildContainer(config: AppConfig): Container {
     updateDoctor,
     deactivateDoctor,
     deleteDoctor,
+    listDutyRosters,
+    createDutyRoster,
+    updateDutyRoster,
+    deleteDutyRoster,
   };
 }
 
