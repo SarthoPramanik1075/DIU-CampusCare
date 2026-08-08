@@ -184,6 +184,9 @@ export function DoctorDetailPage({ session, doctorId, onDeleted }: DoctorDetailP
           </Card>
 
           <div style={{ display: 'flex', gap: 'var(--space-2)', alignItems: 'center', flexWrap: 'wrap' }}>
+            <Link to="/staff/doctors/$doctorId/roster" params={{ doctorId }} className="cc-button cc-button--secondary cc-button--md">
+              Duty roster
+            </Link>
             {doctor.isActive && (
               <Button
                 variant="danger"

@@ -15,10 +15,10 @@ export interface StaffShellProps {
 /**
  * FRONTEND §2.3's persistent left rail (MCS/STO share this pattern; §2.1
  * gives the same reasoning to both — "desktop at a counter," "same
- * reasoning" for the operator). Doctors (F-09/F-10, M2) is the rail's
- * first real destination; Queue, Walk-in, Payments, Catalogue, Stock and
- * Store are still later milestones (M3+), so those stay absent rather
- * than linking to a page that doesn't exist.
+ * reasoning" for the operator). Doctors and Schedule (F-09…F-12, M2) are
+ * the rail's first real destinations; Queue, Walk-in and Payments are
+ * still later milestones (M3+), so those stay absent rather than linking
+ * to a page that doesn't exist.
  *
  * The rail's `ConnectionIndicator` (§2.3, "a staff member acting on a
  * dropped connection needs to know before they act") is also omitted
@@ -44,6 +44,13 @@ export function StaffShell({ session, pageTitle, children }: StaffShellProps): J
             activeProps={{ className: 'cc-staff-rail__link cc-staff-rail__link--active' }}
           >
             Doctors
+          </Link>
+          <Link
+            to="/staff/schedule"
+            className="cc-staff-rail__link"
+            activeProps={{ className: 'cc-staff-rail__link cc-staff-rail__link--active' }}
+          >
+            Schedule
           </Link>
         </nav>
         <div className="cc-staff-rail__footer">

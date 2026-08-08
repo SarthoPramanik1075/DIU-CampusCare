@@ -9,12 +9,14 @@ import { AccountsListPage, type AccountsListSearch } from '../routes/AccountsLis
 import { ConfirmResetPage } from '../routes/ConfirmResetPage.js';
 import { DoctorDetailPage } from '../routes/DoctorDetailPage.js';
 import { DoctorsListPage, type DoctorsListSearch } from '../routes/DoctorsListPage.js';
+import { DutyRosterPage } from '../routes/DutyRosterPage.js';
 import { ErrorPage } from '../routes/ErrorPage.js';
 import { LandingPage } from '../routes/LandingPage.js';
 import { NoAccessPage } from '../routes/NoAccessPage.js';
 import { NotFoundPage } from '../routes/NotFoundPage.js';
 import { OperatorHomePage } from '../routes/OperatorHomePage.js';
 import { RequestResetPage } from '../routes/RequestResetPage.js';
+import { SchedulePage } from '../routes/SchedulePage.js';
 import { SessionExpiredPage } from '../routes/SessionExpiredPage.js';
 import { SignInPage } from '../routes/SignInPage.js';
 import { StaffHomePage } from '../routes/StaffHomePage.js';
@@ -248,6 +250,53 @@ const doctorDetailRoute = createRoute({
   },
 });
 
+const dutyRosterRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/staff/doctors/$doctorId/roster',
+  loader: async ({ params }) => {
+    const session = await requireSession(`/staff/doctors/${params.doctorId}/roster`);
+    // F-11 is MCS-only (FRONTEND §10.4), same gate as the doctor screens.
+    if (!session.roles.includes('MCS')) {
+      throw redirect({ to: '/no-access' });
+    }
+    return { session };
+  },
+  component: () => {
+    const { session } = dutyRosterRoute.useLoaderData();
+    const { doctorId } = dutyRosterRoute.useParams();
+    return <DutyRosterPage session={session} doctorId={doctorId} />;
+  },
+});
+
+const scheduleRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/staff/schedule',
+  validateSearch: (search: Record<string, unknown>): { date?: string } =>
+    typeof search.date === 'string' ? { date: search.date } : {},
+  loader: async () => {
+    const session = await requireSession('/staff/schedule');
+    // F-12 is MCS-only (FRONTEND §10.4).
+    if (!session.roles.includes('MCS')) {
+      throw redirect({ to: '/no-access' });
+    }
+    return { session };
+  },
+  component: () => {
+    const { session } = scheduleRoute.useLoaderData();
+    const { date } = scheduleRoute.useSearch();
+    const navigate = scheduleRoute.useNavigate();
+    return (
+      <SchedulePage
+        session={session}
+        date={date}
+        onDateChange={(next) => {
+          void navigate({ search: next === undefined ? {} : { date: next } });
+        }}
+      />
+    );
+  },
+});
+
 const noAccessRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/no-access',
@@ -278,6 +327,8 @@ const routeTree = rootRoute.addChildren([
   accountDetailRoute,
   doctorsListRoute,
   doctorDetailRoute,
+  dutyRosterRoute,
+  scheduleRoute,
   noAccessRoute,
   errorRoute,
   sessionExpiredRoute,
