@@ -13,6 +13,8 @@ export interface AppConfig {
   readonly port: number;
   readonly databaseUrl: string;
   readonly webAppOrigin: string;
+  /** CORS accepts any of these — `WEB_APP_ORIGIN` may be a comma-separated list, e.g. for reaching a dev server from both `localhost` and a LAN IP at once. `webAppOrigin` above (the first entry) is still what gets embedded in outbound links. */
+  readonly webAppOrigins: readonly string[];
   /** BR-68: the vault's own deployment gate. core-api holds no counseling routes to gate, but shares the flag so both services agree on it. */
   readonly featureCounselingEnabled: boolean;
   readonly featureEmailEnabled: boolean;
@@ -62,12 +64,18 @@ function loadSsoConfig(): AppConfig['sso'] {
 }
 
 export function loadConfig(): AppConfig {
+  const webAppOrigins = (process.env.WEB_APP_ORIGIN ?? 'http://localhost:5173')
+    .split(',')
+    .map((origin) => origin.trim())
+    .filter((origin) => origin.length > 0);
+
   return {
     nodeEnv: process.env.NODE_ENV ?? 'development',
     logLevel: process.env.LOG_LEVEL ?? 'info',
     port: Number.parseInt(process.env.CORE_API_PORT ?? '3001', 10),
     databaseUrl: requireEnv('CORE_DATABASE_URL'),
-    webAppOrigin: process.env.WEB_APP_ORIGIN ?? 'http://localhost:5173',
+    webAppOrigin: webAppOrigins[0] ?? 'http://localhost:5173',
+    webAppOrigins,
     featureCounselingEnabled: readBooleanFlag('FEATURE_COUNSELING_ENABLED', false),
     featureEmailEnabled: readBooleanFlag('FEATURE_EMAIL_ENABLED', false),
     sessionSecret: requireEnv('SESSION_SECRET'),

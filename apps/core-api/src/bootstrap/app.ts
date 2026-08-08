@@ -37,7 +37,7 @@ export async function buildApp(container: Container): Promise<FastifyInstance> {
   });
 
   await app.register(registerCorrelationId);
-  await app.register(cors, { origin: container.config.webAppOrigin, credentials: true });
+  await app.register(cors, { origin: [...container.config.webAppOrigins], credentials: true });
   // `secret` enables signed cookies — the SSO pre-session (§1.1) is one,
   // carrying its PKCE verifier and state across the IdP round trip.
   await app.register(cookie, { secret: container.config.sessionSecret });

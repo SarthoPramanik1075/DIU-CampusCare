@@ -61,6 +61,7 @@ function buildTestApp(repository: AnnouncementRepository, now: Date): Promise<Fa
       port: 0,
       databaseUrl: 'unused-in-this-test',
       webAppOrigin: 'http://localhost:5173',
+      webAppOrigins: ['http://localhost:5173'],
       featureCounselingEnabled: false,
       featureEmailEnabled: false,
       sessionSecret: 'a'.repeat(32),
