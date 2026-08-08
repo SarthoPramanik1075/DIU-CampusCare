@@ -4,7 +4,7 @@ import type { Page } from '@playwright/test';
 // this suite runs. Re-exported from the same constants module the seeding
 // script itself reads, rather than duplicated, so a password change in one
 // place can't silently drift from the other.
-export { E2E_ADMIN, E2E_OPERATOR, E2E_STAFF, E2E_STUDENT } from '../../../apps/core-api/tests/support/e2e-fixture-accounts.js';
+export { E2E_ADMIN, E2E_OPERATOR, E2E_SCHEDULING_STAFF, E2E_STAFF, E2E_STUDENT } from '../../../apps/core-api/tests/support/e2e-fixture-accounts.js';
 
 /**
  * Argon2id verification (NFR-SEC-02) is deliberately CPU/memory-hard, so

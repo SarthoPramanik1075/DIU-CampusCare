@@ -5,7 +5,7 @@ import { uuidv7 } from 'uuidv7';
 
 import { PasswordHasher } from '../../src/modules/iam/infrastructure/password-hasher.js';
 
-import { E2E_ADMIN, E2E_OPERATOR, E2E_STAFF, E2E_STUDENT } from './e2e-fixture-accounts.js';
+import { E2E_ADMIN, E2E_OPERATOR, E2E_SCHEDULING_STAFF, E2E_STAFF, E2E_STUDENT } from './e2e-fixture-accounts.js';
 
 /**
  * Seeds the fixture accounts `tests/e2e/` needs to exercise a real
@@ -63,6 +63,12 @@ const ACCOUNTS: readonly SeedAccount[] = [
   },
   { email: E2E_STAFF.email, fullName: 'E2E Staff', password: E2E_STAFF.password, roleCode: 'MCS' },
   { email: E2E_OPERATOR.email, fullName: 'E2E Operator', password: E2E_OPERATOR.password, roleCode: 'STO' },
+  {
+    email: E2E_SCHEDULING_STAFF.email,
+    fullName: 'E2E Scheduling Staff',
+    password: E2E_SCHEDULING_STAFF.password,
+    roleCode: 'MCS',
+  },
 ];
 
 async function seedAccount(client: Client, hasher: PasswordHasher, account: SeedAccount): Promise<void> {
