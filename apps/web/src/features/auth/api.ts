@@ -41,3 +41,13 @@ export function ssoLoginUrl(redirectTo?: string): string {
   const query = redirectTo === undefined ? '' : `?redirectTo=${encodeURIComponent(redirectTo)}`;
   return `${CORE_API_URL}/api/v1/auth/sso/login${query}`;
 }
+
+/** API §1.7 `POST /auth/password-reset/request` — always 202, identical message whether or not the account exists. */
+export function requestPasswordReset(email: string): Promise<{ message: string }> {
+  return apiPost<{ message: string }>(CORE_API_URL, '/api/v1/auth/password-reset/request', { email });
+}
+
+/** API §1.8 `POST /auth/password-reset/confirm`. */
+export function confirmPasswordReset(token: string, newPassword: string): Promise<{ message: string }> {
+  return apiPost<{ message: string }>(CORE_API_URL, '/api/v1/auth/password-reset/confirm', { token, newPassword });
+}

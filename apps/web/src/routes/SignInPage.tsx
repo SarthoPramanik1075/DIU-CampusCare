@@ -1,10 +1,10 @@
-import { useNavigate, useSearch } from '@tanstack/react-router';
+import { Link, useNavigate, useSearch } from '@tanstack/react-router';
 import { useState, type JSX } from 'react';
 
 import { ssoLoginUrl } from '../features/auth/api.js';
 import { useLogin } from '../features/auth/use-session.js';
 import { ApiError } from '../infrastructure/api-client.js';
-import { AppHeader } from '../shared/AppHeader.js';
+import { AuthCard } from '../shared/AuthCard.js';
 import { Banner } from '../shared/primitives/Banner.js';
 import { Button } from '../shared/primitives/Button.js';
 import { Input } from '../shared/primitives/Input.js';
@@ -67,61 +67,38 @@ export function SignInPage(): JSX.Element {
   }
 
   return (
-    <>
-      <AppHeader />
-      <main
-        style={{
-          maxWidth: 'var(--container-narrow)',
-          margin: 'var(--space-6) auto',
-          padding: '0 var(--space-3)',
+    <AuthCard title="Sign in">
+      {ssoError !== undefined && <Banner tone="warning" message={ssoError} />}
+
+      <div style={{ marginTop: ssoError === undefined ? 0 : 'var(--space-2)' }}>
+        <Button variant="primary" size="lg" loading={ssoChecking} onClick={() => void handleSsoClick()}>
+          Sign in with DIU account
+        </Button>
+      </div>
+
+      <p role="separator" style={{ textAlign: 'center', color: 'var(--color-text-secondary)', margin: 'var(--space-3) 0' }}>
+        — or —
+      </p>
+
+      {formError !== undefined && <Banner tone="danger" message={formError} />}
+
+      <form
+        onSubmit={(event) => {
+          event.preventDefault();
+          void handlePasswordSubmit();
         }}
+        style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: formError === undefined ? 0 : 'var(--space-2)' }}
       >
-        <div
-          style={{
-            background: 'var(--color-bg)',
-            border: `var(--border-width) solid var(--color-border)`,
-            borderRadius: 'var(--radius-lg)',
-            boxShadow: 'var(--shadow-sm)',
-            padding: 'var(--space-4)',
-          }}
-        >
-          <h1 style={{ fontSize: 'var(--text-2xl)', marginTop: 0, marginBottom: 'var(--space-3)' }}>Sign in</h1>
+        <Input label="University email" type="email" value={email} onChange={setEmail} required autoComplete="username" />
+        <Input label="Password" type="password" value={password} onChange={setPassword} required autoComplete="current-password" />
+        <Button variant="primary" type="submit" loading={login.isPending}>
+          Sign in
+        </Button>
+      </form>
 
-          {ssoError !== undefined && <Banner tone="warning" message={ssoError} />}
-
-          <div style={{ marginTop: ssoError === undefined ? 0 : 'var(--space-2)' }}>
-            <Button variant="primary" size="lg" loading={ssoChecking} onClick={() => void handleSsoClick()}>
-              Sign in with DIU account
-            </Button>
-          </div>
-
-          <p role="separator" style={{ textAlign: 'center', color: 'var(--color-text-secondary)', margin: 'var(--space-3) 0' }}>
-            — or —
-          </p>
-
-          {formError !== undefined && <Banner tone="danger" message={formError} />}
-
-          <form
-            onSubmit={(event) => {
-              event.preventDefault();
-              void handlePasswordSubmit();
-            }}
-            style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)', marginTop: formError === undefined ? 0 : 'var(--space-2)' }}
-          >
-            <Input label="University email" type="email" value={email} onChange={setEmail} required autoComplete="username" />
-            <Input label="Password" type="password" value={password} onChange={setPassword} required autoComplete="current-password" />
-            <Button variant="primary" type="submit" loading={login.isPending}>
-              Sign in
-            </Button>
-          </form>
-
-          <p style={{ marginTop: 'var(--space-3)', marginBottom: 0 }}>
-            {/* Plain anchor, not a router Link: /reset-password (P-07) is a later
-                M1 checkpoint, not yet a route this app's tree knows about. */}
-            <a href="/reset-password">Forgot your password?</a>
-          </p>
-        </div>
-      </main>
-    </>
+      <p style={{ marginTop: 'var(--space-3)', marginBottom: 0 }}>
+        <Link to="/reset-password">Forgot your password?</Link>
+      </p>
+    </AuthCard>
   );
 }

@@ -1,9 +1,11 @@
 import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
 
+import { ConfirmResetPage } from '../routes/ConfirmResetPage.js';
 import { ErrorPage } from '../routes/ErrorPage.js';
 import { LandingPage } from '../routes/LandingPage.js';
 import { NoAccessPage } from '../routes/NoAccessPage.js';
 import { NotFoundPage } from '../routes/NotFoundPage.js';
+import { RequestResetPage } from '../routes/RequestResetPage.js';
 import { SessionExpiredPage } from '../routes/SessionExpiredPage.js';
 import { SignInPage } from '../routes/SignInPage.js';
 
@@ -33,6 +35,20 @@ const signInRoute = createRoute({
   component: SignInPage,
 });
 
+const requestResetRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/reset-password',
+  component: RequestResetPage,
+});
+
+const confirmResetRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/reset-password/confirm',
+  validateSearch: (search: Record<string, unknown>): { token?: string } =>
+    typeof search.token === 'string' ? { token: search.token } : {},
+  component: ConfirmResetPage,
+});
+
 const noAccessRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/no-access',
@@ -51,7 +67,15 @@ const sessionExpiredRoute = createRoute({
   component: SessionExpiredPage,
 });
 
-const routeTree = rootRoute.addChildren([indexRoute, signInRoute, noAccessRoute, errorRoute, sessionExpiredRoute]);
+const routeTree = rootRoute.addChildren([
+  indexRoute,
+  signInRoute,
+  requestResetRoute,
+  confirmResetRoute,
+  noAccessRoute,
+  errorRoute,
+  sessionExpiredRoute,
+]);
 
 export const router = createRouter({ routeTree, defaultNotFoundComponent: NotFoundPage });
 
