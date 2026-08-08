@@ -5,6 +5,7 @@ import type { JSX } from 'react';
 
 import { AnnouncementList } from '../features/announcements/AnnouncementList.js';
 import { useLogout, useSession } from '../features/auth/use-session.js';
+import { AvailabilityList } from '../features/availability/AvailabilityList.js';
 import { AppHeader } from '../shared/AppHeader.js';
 
 /**
@@ -25,15 +26,14 @@ const ROLE_HOME: Partial<Record<RoleCode, { readonly to: string; readonly label:
 
 /**
  * P-01 · Landing / public availability (FRONTEND §10.1) — the M0.5 vertical
- * slice plus M1's real sign-in state. The full P-01 wireframe additionally
- * shows doctor duty-roster availability (`GET /api/v1/public/availability`)
- * and medicine-store status; neither endpoint exists yet (SCH and pharmacy
- * modules are later milestones), so this page renders only what is real:
- * live announcements and the caller's actual session state. That is also
- * why the body below the header can be visually quiet on a day with no
- * announcements — `AnnouncementList` intentionally renders nothing rather
- * than an invented "all clear" card (see its own doc comment); the
- * placeholder content ban applies here just as much as anywhere else.
+ * slice, M1's real sign-in state, and M2's doctor duty-roster availability
+ * (`GET /api/v1/public/availability`, `AvailabilityList`). Medicine-store
+ * status is still absent — the pharmacy module is a later milestone. The
+ * body below the header can still be visually quiet on a day with no
+ * announcements and nothing published in the availability window —
+ * `AnnouncementList`/`AvailabilityList` both intentionally render nothing
+ * rather than an invented "all clear" card (see their own doc comments);
+ * the placeholder content ban applies here just as much as anywhere else.
  */
 export function LandingPage(): JSX.Element {
   const session = useSession();
@@ -75,6 +75,7 @@ export function LandingPage(): JSX.Element {
           );
         })}
         <AnnouncementList />
+        <AvailabilityList />
       </main>
     </>
   );
