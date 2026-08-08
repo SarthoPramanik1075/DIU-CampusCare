@@ -236,6 +236,12 @@ async function buildTestApp(): Promise<{ app: FastifyInstance; dashboardReposito
     grantRole: undefined as unknown as Container['grantRole'],
     revokeRole: undefined as unknown as Container['revokeRole'],
     getStudentDashboard,
+    listDoctors: undefined as unknown as Container['listDoctors'],
+    getDoctor: undefined as unknown as Container['getDoctor'],
+    createDoctor: undefined as unknown as Container['createDoctor'],
+    updateDoctor: undefined as unknown as Container['updateDoctor'],
+    deactivateDoctor: undefined as unknown as Container['deactivateDoctor'],
+    deleteDoctor: undefined as unknown as Container['deleteDoctor'],
   };
 
   return { app: await buildApp(container), dashboardRepository };

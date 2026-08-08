@@ -5,6 +5,18 @@
  * re-checked inline.
  */
 
+/** Mirrors `modules/iam/domain/validation.ts`'s helper of the same name — kept module-local (DR-2) rather than cross-imported for one generic string check. */
+export function isNonEmptyAfterTrim(value: string): boolean {
+  return value.trim().length > 0;
+}
+
+const MINIMUM_REASON_LENGTH = 10;
+
+/** VR-93 — every mandatory reason field: minimum 10 characters after trimming. Mirrors `modules/iam/domain/validation.ts`'s helper of the same name (DR-2 — kept module-local). */
+export function isValidReason(reason: string): boolean {
+  return reason.trim().length >= MINIMUM_REASON_LENGTH;
+}
+
 /** VR-10 — end strictly after start. (Time-of-day range 00:00–23:59 is guaranteed by the `HH:mm`/`timestamptz` wire format itself, not re-checked here.) */
 export function isValidTimeOrder(startsAt: Date, endsAt: Date): boolean {
   return endsAt.getTime() > startsAt.getTime();

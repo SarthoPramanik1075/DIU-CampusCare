@@ -9,6 +9,7 @@ import { REDACTED_PATHS, REDACTION_CENSOR } from '../kernel/logging/redaction.js
 import { registerAnnouncementRoutes } from '../modules/config/index.js';
 import { registerDashboardRoutes } from '../modules/dashboard/index.js';
 import { registerAccountAdminRoutes, registerAuthRoutes, registerOwnProfileRoutes } from '../modules/iam/index.js';
+import { registerDoctorRoutes } from '../modules/scheduling/index.js';
 
 import type { Container } from './container.js';
 
@@ -94,6 +95,17 @@ export async function buildApp(container: Container): Promise<FastifyInstance> {
   registerDashboardRoutes(app, {
     getSession: container.getSession,
     getStudentDashboard: container.getStudentDashboard,
+  });
+
+  registerDoctorRoutes(app, {
+    pep,
+    getSession: container.getSession,
+    listDoctors: container.listDoctors,
+    getDoctor: container.getDoctor,
+    createDoctor: container.createDoctor,
+    updateDoctor: container.updateDoctor,
+    deactivateDoctor: container.deactivateDoctor,
+    deleteDoctor: container.deleteDoctor,
   });
 
   return app;

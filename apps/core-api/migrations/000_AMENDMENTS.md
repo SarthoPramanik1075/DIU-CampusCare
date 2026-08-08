@@ -139,13 +139,43 @@ additions with no interaction:
    not a stand-in for a real location catalogue that doesn't exist yet.
 
 **Applied**, in `008_scheduling_extensions.sql`: one seeded `config.location`
-row (`MAIN` / "DIU Medical Centre"); new table
-`scheduling.unavailability_preview` (id, doctor_id, start_date, end_date,
-reason, affected_appointment_ids uuid[], created_at, expires_at) — no hash,
-since unlike a credential, a leaked preview id reveals nothing an MCS/ADM
-session couldn't already read through the API; one seeded notification
-template (`doctor_unavailability_cancelled`) for the confirm handler's
-outbox row.
+row (`DIU-MC-01` / "DIU Medical Centre" — not the more obvious `MAIN`, since
+seven M1 integration tests already use that code as their own scratch-
+database fixture); new table `scheduling.unavailability_preview` (id,
+doctor_id, start_date, end_date, reason, affected_appointment_ids uuid[],
+created_at, expires_at) — no hash, since unlike a credential, a leaked
+preview id reveals nothing an MCS/ADM session couldn't already read through
+the API; one seeded notification template (`doctor_unavailability_cancelled`)
+for the confirm handler's outbox row.
+
+---
+
+### GRANT-01 · `scheduling.doctor` needs `DELETE`, which `005_grants.sql` withholds everywhere on purpose (M2)
+
+**Found live**, not by a test: `DELETE /api/v1/doctors/{id}` returned `500`
+against the running dev server — `permission denied for table doctor`
+(Postgres `42501`), the kind of failure no mocked-repository unit or
+integration test against an admin-privileged connection would ever catch,
+since only `campuscare_core_app`'s actual grants are narrow enough to hit
+it.
+
+API §3.1's `DELETE /api/v1/doctors/{id}` (EC-20) is a real, specified hard
+delete — "permitted only when no appointment has ever referenced it" — but
+`005_grants.sql` states, deliberately and in its own words: *"P4: nothing
+is ever deleted in Phase 1 (NFR-RET-01). No DELETE is granted anywhere,
+deliberately."* Every table in the schema has zero `DELETE` privilege for
+`campuscare_core_app` by design. EC-20 asks for the one specified exception
+that policy doesn't yet have a carve-out for.
+
+**Applied**, in `009_doctor_delete_grant.sql`: `GRANT DELETE ON
+scheduling.doctor TO campuscare_core_app` — scoped to exactly the one table
+with a specified hard-delete requirement, not a general reopening of
+`005_grants.sql`'s policy. `clinic_session.doctor_id`'s foreign key (no `ON
+DELETE CASCADE`) still makes deletion physically impossible once real
+appointment history exists — proven in `doctor-admin.test.ts` via an actual
+foreign-key-violation, not just the application-layer `DOCTOR_HAS_HISTORY`
+check — so P4's actual spirit (nothing with real operational history is
+ever deleted) holds regardless of this grant existing.
 
 ---
 

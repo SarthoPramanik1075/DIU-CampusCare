@@ -76,6 +76,8 @@ export { LogoutHandler } from './application/logout.handler.js';
 export { GetAccountDetailQuery } from './application/queries/get-account-detail.query.js';
 export { GetOwnProfileQuery, type OwnProfile } from './application/queries/get-own-profile.query.js';
 export { GetSessionQuery, type SessionSnapshot } from './application/queries/get-session.query.js';
+/** Generic "who, specifically, is asking" resolution from the session cookie — reused by other modules' routes (e.g. `scheduling`) rather than duplicating this cookie-reading path. */
+export { resolveOwnUserId, unauthenticatedError } from './application/resolve-own-user-id.js';
 export { ListAccountsQuery } from './application/queries/list-accounts.query.js';
 export { ListRoleCatalogueQuery } from './application/queries/list-role-catalogue.query.js';
 export { SsoLoginHandler } from './application/queries/sso-login.query.js';

@@ -297,6 +297,8 @@ export interface AppointmentTable {
   appointment_ref: string;
   clinic_session_id: string;
   student_id: string | null;
+  /** `ck_appointment_subject` — set when `student_id` is null (an unregistered walk-in, FR-APT-36). */
+  unregistered_name: string | null;
   serial_number: number;
   origin: AppointmentOrigin;
   status: Generated<AppointmentStatus>;

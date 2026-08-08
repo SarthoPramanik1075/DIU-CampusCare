@@ -49,6 +49,16 @@ import {
   type PasswordResetRepository,
   type SsoClient,
 } from '../modules/iam/index.js';
+import {
+  CreateDoctorHandler,
+  DeactivateDoctorHandler,
+  DeleteDoctorHandler,
+  GetDoctorQuery,
+  KyselyDoctorRepository,
+  ListDoctorsQuery,
+  UpdateDoctorHandler,
+  type DoctorRepository,
+} from '../modules/scheduling/index.js';
 
 import type { AppConfig } from './config.js';
 
@@ -92,6 +102,12 @@ export interface Container {
   readonly grantRole: GrantRoleHandler;
   readonly revokeRole: RevokeRoleHandler;
   readonly getStudentDashboard: GetStudentDashboardQuery;
+  readonly listDoctors: ListDoctorsQuery;
+  readonly getDoctor: GetDoctorQuery;
+  readonly createDoctor: CreateDoctorHandler;
+  readonly updateDoctor: UpdateDoctorHandler;
+  readonly deactivateDoctor: DeactivateDoctorHandler;
+  readonly deleteDoctor: DeleteDoctorHandler;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -183,6 +199,14 @@ export function buildContainer(config: AppConfig): Container {
   const dashboardRepository: DashboardRepository = new KyselyDashboardRepository(db);
   const getStudentDashboard = new GetStudentDashboardQuery(ownProfileRepository, dashboardRepository, listActiveAnnouncements, clock);
 
+  const doctorRepository: DoctorRepository = new KyselyDoctorRepository(db);
+  const listDoctors = new ListDoctorsQuery(doctorRepository);
+  const getDoctor = new GetDoctorQuery(doctorRepository);
+  const createDoctor = new CreateDoctorHandler(doctorRepository, auditRecorder);
+  const updateDoctor = new UpdateDoctorHandler(doctorRepository, auditRecorder);
+  const deactivateDoctor = new DeactivateDoctorHandler(doctorRepository, auditRecorder);
+  const deleteDoctor = new DeleteDoctorHandler(doctorRepository, auditRecorder);
+
   return {
     config,
     logger,
@@ -217,6 +241,12 @@ export function buildContainer(config: AppConfig): Container {
     grantRole,
     revokeRole,
     getStudentDashboard,
+    listDoctors,
+    getDoctor,
+    createDoctor,
+    updateDoctor,
+    deactivateDoctor,
+    deleteDoctor,
   };
 }
 
