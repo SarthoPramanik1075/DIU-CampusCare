@@ -9,6 +9,7 @@ import { AccountsListPage, type AccountsListSearch } from '../routes/AccountsLis
 import { ConfirmResetPage } from '../routes/ConfirmResetPage.js';
 import { DoctorDetailPage } from '../routes/DoctorDetailPage.js';
 import { DoctorsListPage, type DoctorsListSearch } from '../routes/DoctorsListPage.js';
+import { DoctorUnavailabilityPage } from '../routes/DoctorUnavailabilityPage.js';
 import { DutyRosterPage } from '../routes/DutyRosterPage.js';
 import { ErrorPage } from '../routes/ErrorPage.js';
 import { LandingPage } from '../routes/LandingPage.js';
@@ -268,6 +269,24 @@ const dutyRosterRoute = createRoute({
   },
 });
 
+const doctorUnavailabilityRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/staff/doctors/$doctorId/unavailability',
+  loader: async ({ params }) => {
+    const session = await requireSession(`/staff/doctors/${params.doctorId}/unavailability`);
+    // F-13 is MCS-only (FRONTEND §10.4), same gate as the doctor screens.
+    if (!session.roles.includes('MCS')) {
+      throw redirect({ to: '/no-access' });
+    }
+    return { session };
+  },
+  component: () => {
+    const { session } = doctorUnavailabilityRoute.useLoaderData();
+    const { doctorId } = doctorUnavailabilityRoute.useParams();
+    return <DoctorUnavailabilityPage session={session} doctorId={doctorId} />;
+  },
+});
+
 const scheduleRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/staff/schedule',
@@ -328,6 +347,7 @@ const routeTree = rootRoute.addChildren([
   doctorsListRoute,
   doctorDetailRoute,
   dutyRosterRoute,
+  doctorUnavailabilityRoute,
   scheduleRoute,
   noAccessRoute,
   errorRoute,
