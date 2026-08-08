@@ -72,6 +72,8 @@ export type {
   CreateClinicSessionInput,
   CreateClinicSessionResult,
   InterruptSessionOutcome,
+  PublicAvailabilityDay,
+  PublicAvailabilitySession,
   QueueSummary,
   ServiceCalendarClosure,
   SessionSlotItem,
@@ -88,8 +90,10 @@ export { CancelSessionHandler, type CancelSessionCommandInput, type CancelSessio
 export { GetClinicSessionQuery, type ClinicSessionDetail } from './application/queries/get-clinic-session.query.js';
 export { ListClinicSessionsQuery } from './application/queries/list-clinic-sessions.query.js';
 export { GetSessionSlotsQuery, type SessionSlotsResult } from './application/queries/get-session-slots.query.js';
+export { GetPublicAvailabilityQuery, type PublicAvailabilityResult } from './application/queries/get-public-availability.query.js';
 export { KyselyClinicSessionRepository } from './infrastructure/clinic-session.repository.js';
 export { registerClinicSessionRoutes, type ClinicSessionRouteDeps } from './interface/http/clinic-session.routes.js';
+export { registerPublicAvailabilityRoutes, type PublicAvailabilityRouteDeps } from './interface/http/public-availability.routes.js';
 
 export type {
   AffectedAppointmentDetail,

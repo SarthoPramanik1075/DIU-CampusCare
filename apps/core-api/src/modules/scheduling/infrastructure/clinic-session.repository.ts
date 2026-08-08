@@ -12,6 +12,7 @@ import type {
   CreateClinicSessionInput,
   CreateClinicSessionResult,
   InterruptSessionOutcome,
+  PublicAvailabilityDay,
   QueueSummary,
   ServiceCalendarClosure,
   SessionSlotItem,
@@ -492,4 +493,87 @@ export class KyselyClinicSessionRepository implements ClinicSessionRepository {
     if (session === null) throw new Error(`scheduling.clinic_session ${sessionId} vanished immediately after its own update`);
     return { outcome: 'cancelled', session, cancelledAppointments: cancelledAppointments.map(toAffectedAppointment) };
   }
+
+  async findDefaultLocationId(): Promise<string> {
+    const row = await this.db.selectFrom('config.location').select('id').orderBy('created_at', 'asc').executeTakeFirst();
+    if (row === undefined) {
+      throw new Error('config.location has no rows — has 008_scheduling_extensions.sql been migrated?');
+    }
+    return row.id;
+  }
+
+  /** API §2.2 — one entry per date in `[from, to]`, each carrying its service-day status and every non-cancelled session that day. */
+  async listPublicAvailability(locationId: string, from: string, to: string, doctorId: string | undefined): Promise<readonly PublicAvailabilityDay[]> {
+    let sessionQuery = this.db
+      .selectFrom('scheduling.clinic_session')
+      .innerJoin('scheduling.doctor', 'scheduling.doctor.id', 'scheduling.clinic_session.doctor_id')
+      .select([
+        'scheduling.clinic_session.id as id',
+        'scheduling.clinic_session.doctor_id as doctor_id',
+        'scheduling.doctor.full_name as doctor_name',
+        'scheduling.doctor.designation as designation',
+        'scheduling.doctor.specialisation as specialisation',
+        'scheduling.doctor.photo_url as photo_url',
+        'scheduling.clinic_session.session_date as session_date',
+        'scheduling.clinic_session.starts_at as starts_at',
+        'scheduling.clinic_session.ends_at as ends_at',
+        'scheduling.clinic_session.status as status',
+        'scheduling.clinic_session.bookable_slot_count as bookable_slot_count',
+      ])
+      .where('scheduling.clinic_session.location_id', '=', locationId)
+      .where('scheduling.clinic_session.session_date', '>=', from)
+      .where('scheduling.clinic_session.session_date', '<=', to)
+      .where('scheduling.clinic_session.status', '!=', 'cancelled');
+    if (doctorId !== undefined) sessionQuery = sessionQuery.where('scheduling.clinic_session.doctor_id', '=', doctorId);
+
+    const [sessionRows, closureRows] = await Promise.all([
+      sessionQuery.orderBy('scheduling.clinic_session.starts_at').execute(),
+      this.db
+        .selectFrom('config.service_calendar')
+        .select(['calendar_date', 'is_service_day', 'reason'])
+        .where('location_id', '=', locationId)
+        .where('calendar_date', '>=', from)
+        .where('calendar_date', '<=', to)
+        .execute(),
+    ]);
+
+    const sessionsWithBookedCount = await Promise.all(
+      sessionRows.map(async (row) => ({ row, bookedSlotCount: await this.countBookedAppointments(row.id) })),
+    );
+    const closuresByDate = new Map(closureRows.map((row) => [row.calendar_date, row]));
+
+    const days: PublicAvailabilityDay[] = [];
+    for (const date of enumerateDates(from, to)) {
+      const closure = closuresByDate.get(date);
+      const isServiceDay = closure?.is_service_day ?? true;
+      const sessions: PublicAvailabilityDay['sessions'] = sessionsWithBookedCount
+        .filter(({ row }) => row.session_date === date)
+        .map(({ row, bookedSlotCount }) => ({
+          sessionId: row.id,
+          doctorId: row.doctor_id,
+          doctorName: row.doctor_name,
+          designation: row.designation,
+          specialisation: row.specialisation,
+          photoUrl: row.photo_url,
+          startsAt: row.starts_at,
+          endsAt: row.ends_at,
+          status: row.status,
+          bookableSlotCount: row.bookable_slot_count,
+          bookedSlotCount,
+        }));
+      days.push({ date, isServiceDay, closureReason: isServiceDay ? null : (closure?.reason ?? null), sessions });
+    }
+    return days;
+  }
+}
+
+function enumerateDates(from: string, to: string): readonly string[] {
+  const dates: string[] = [];
+  const cursor = new Date(`${from}T00:00:00Z`);
+  const end = new Date(`${to}T00:00:00Z`);
+  while (cursor.getTime() <= end.getTime()) {
+    dates.push(cursor.toISOString().slice(0, 10));
+    cursor.setUTCDate(cursor.getUTCDate() + 1);
+  }
+  return dates;
 }

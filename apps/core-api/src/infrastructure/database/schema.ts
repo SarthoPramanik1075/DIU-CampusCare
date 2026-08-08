@@ -67,6 +67,7 @@ export interface ServiceCalendarTable {
   reason: string;
   created_by: string;
   created_at: Generated<Date>;
+  version: Generated<number>;
 }
 
 // ---------------------------------------------------------------------

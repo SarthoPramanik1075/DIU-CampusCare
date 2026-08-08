@@ -48,7 +48,7 @@ function buildHandler(overrides: { readonly repository?: Partial<ClinicSessionRe
     interruptSession: vi.fn().mockResolvedValue({ outcome: 'interrupted', session: SESSION, remainingAppointments: REMAINING }),
     countInConsultation: vi.fn(),
     completeSession: vi.fn(),
-    cancelSession: vi.fn(),
+    cancelSession: vi.fn(),    findDefaultLocationId: vi.fn(),    listPublicAvailability: vi.fn(),
     ...overrides.repository,
   };
   const auditRecorder = { recordChange: vi.fn().mockResolvedValue(undefined) } as unknown as AuditRecorder;

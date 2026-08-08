@@ -14,7 +14,7 @@ function buildQuery(overrides: { readonly repository?: Partial<ClinicSessionRepo
     createClinicSession: vi.fn(),
     updateClinicSession: vi.fn(),
     listSessionSlots: vi.fn(),
-    getQueueSummary: vi.fn(),    listOpenAppointments: vi.fn(),    startSession: vi.fn(),    interruptSession: vi.fn(),    countInConsultation: vi.fn(),    completeSession: vi.fn(),    cancelSession: vi.fn(),
+    getQueueSummary: vi.fn(),    listOpenAppointments: vi.fn(),    startSession: vi.fn(),    interruptSession: vi.fn(),    countInConsultation: vi.fn(),    completeSession: vi.fn(),    cancelSession: vi.fn(),    findDefaultLocationId: vi.fn(),    listPublicAvailability: vi.fn(),
     ...overrides.repository,
   };
   return { query: new ListClinicSessionsQuery(repository), repository };

@@ -12,7 +12,17 @@ import type { SubjectResolver } from '../kernel/identity/subject-resolver.js';
 import { createLogger } from '../kernel/logging/logger.js';
 import { enqueueNotification } from '../kernel/notifications/enqueue-notification.js';
 import { PolicyStore } from '../kernel/policy/policy-store.js';
-import { KyselyAnnouncementRepository, ListActiveAnnouncementsHandler } from '../modules/config/index.js';
+import {
+  CreateServiceCalendarEntriesHandler,
+  DeleteServiceCalendarEntryHandler,
+  GetPublicServiceCalendarQuery,
+  KyselyAnnouncementRepository,
+  KyselyServiceCalendarRepository,
+  ListActiveAnnouncementsHandler,
+  ListServiceCalendarQuery,
+  UpdateServiceCalendarEntryHandler,
+  type ServiceCalendarRepository,
+} from '../modules/config/index.js';
 import { GetStudentDashboardQuery, KyselyDashboardRepository, type DashboardRepository } from '../modules/dashboard/index.js';
 import {
   ActivateAccountHandler,
@@ -62,6 +72,7 @@ import {
   DeleteUnavailabilityHandler,
   GetClinicSessionQuery,
   GetDoctorQuery,
+  GetPublicAvailabilityQuery,
   GetSessionSlotsQuery,
   InterruptSessionHandler,
   KyselyClinicSessionRepository,
@@ -149,6 +160,12 @@ export interface Container {
   readonly previewUnavailability: PreviewUnavailabilityHandler;
   readonly confirmUnavailability: ConfirmUnavailabilityHandler;
   readonly deleteUnavailability: DeleteUnavailabilityHandler;
+  readonly getPublicAvailability: GetPublicAvailabilityQuery;
+  readonly listServiceCalendar: ListServiceCalendarQuery;
+  readonly getPublicServiceCalendar: GetPublicServiceCalendarQuery;
+  readonly createServiceCalendarEntries: CreateServiceCalendarEntriesHandler;
+  readonly updateServiceCalendarEntry: UpdateServiceCalendarEntryHandler;
+  readonly deleteServiceCalendarEntry: DeleteServiceCalendarEntryHandler;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -271,6 +288,15 @@ export function buildContainer(config: AppConfig): Container {
   const confirmUnavailability = new ConfirmUnavailabilityHandler(unavailabilityRepository, auditRecorder, clock, (input) => enqueueNotification(db, input));
   const deleteUnavailability = new DeleteUnavailabilityHandler(unavailabilityRepository, auditRecorder, clock);
 
+  const getPublicAvailability = new GetPublicAvailabilityQuery(clinicSessionRepository, policyStore, clock);
+
+  const serviceCalendarRepository: ServiceCalendarRepository = new KyselyServiceCalendarRepository(db);
+  const listServiceCalendar = new ListServiceCalendarQuery(serviceCalendarRepository);
+  const getPublicServiceCalendar = new GetPublicServiceCalendarQuery(serviceCalendarRepository);
+  const createServiceCalendarEntries = new CreateServiceCalendarEntriesHandler(serviceCalendarRepository, auditRecorder);
+  const updateServiceCalendarEntry = new UpdateServiceCalendarEntryHandler(serviceCalendarRepository, auditRecorder);
+  const deleteServiceCalendarEntry = new DeleteServiceCalendarEntryHandler(serviceCalendarRepository, auditRecorder, clock);
+
   return {
     config,
     logger,
@@ -329,6 +355,12 @@ export function buildContainer(config: AppConfig): Container {
     previewUnavailability,
     confirmUnavailability,
     deleteUnavailability,
+    getPublicAvailability,
+    listServiceCalendar,
+    getPublicServiceCalendar,
+    createServiceCalendarEntries,
+    updateServiceCalendarEntry,
+    deleteServiceCalendarEntry,
   };
 }
 

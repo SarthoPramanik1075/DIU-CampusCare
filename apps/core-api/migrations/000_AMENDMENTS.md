@@ -249,6 +249,41 @@ checking `startDate` against server time, not the database withholding
 
 ---
 
+### DDL-07 · no `version` column on `config.service_calendar` (M2)
+
+**Found by** implementing API §8.5 `PATCH /api/v1/service-calendar/{id}`,
+which requires `version` (VR-92) exactly like every other mutable
+resource's `PATCH`. `001_schema.sql`'s DDL for `config.service_calendar`
+never gave it a `version` column — the same category of gap DDL-03 and
+DDL-05 resolved for missing storage elsewhere.
+
+**Applied**, in `013_service_calendar_version.sql`: `ALTER TABLE
+config.service_calendar ADD COLUMN version integer NOT NULL DEFAULT 1`.
+No trigger — incremented manually in the `UPDATE ... SET version =
+version + 1 WHERE ... AND version = $expected` statement, the same
+pattern `scheduling.doctor`/`duty_roster` use, since nothing else about
+this table calls for a trigger the way `clinic_session`'s slot-count
+bookkeeping did.
+
+---
+
+### GRANT-04 · `config.service_calendar` needs `DELETE`, for the same reason as GRANT-01/02/03 (M2)
+
+**Added proactively**, not found live: `DELETE /api/v1/service-calendar/{id}`
+(API §8.6, FR-ADM-03) genuinely removes the row — "reopening the day for
+booking" — and the table has no soft-delete column. Fourth instance of
+the same shape of gap (GRANT-01 `scheduling.doctor`, GRANT-02
+`scheduling.session_slot`, GRANT-03 `scheduling.doctor_unavailability`):
+`005_grants.sql` withholds `DELETE` everywhere by design, and this table
+has the same kind of specified, narrow exception the other three did.
+
+**Applied**, in `014_service_calendar_delete_grant.sql`: `GRANT DELETE ON
+config.service_calendar TO campuscare_core_app`. The guard that actually
+matters — a past closure can't be rewritten — is `CANNOT_EDIT_PAST`,
+enforced in the handler by checking the entry's date against server time.
+
+---
+
 ## Raised, not taken
 
 ### RST-01 · `duty_roster` overlap is an application check, not a constraint

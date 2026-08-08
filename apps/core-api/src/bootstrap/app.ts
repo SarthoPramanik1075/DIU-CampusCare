@@ -6,10 +6,16 @@ import { createPolicyEnforcementPoint } from '../kernel/authz/policy-enforcement
 import { registerCorrelationId } from '../kernel/http/correlation.js';
 import { registerErrorHandling } from '../kernel/http/error-handler.js';
 import { REDACTED_PATHS, REDACTION_CENSOR } from '../kernel/logging/redaction.js';
-import { registerAnnouncementRoutes } from '../modules/config/index.js';
+import { registerAnnouncementRoutes, registerServiceCalendarRoutes } from '../modules/config/index.js';
 import { registerDashboardRoutes } from '../modules/dashboard/index.js';
 import { registerAccountAdminRoutes, registerAuthRoutes, registerOwnProfileRoutes } from '../modules/iam/index.js';
-import { registerClinicSessionRoutes, registerDoctorRoutes, registerDutyRosterRoutes, registerUnavailabilityRoutes } from '../modules/scheduling/index.js';
+import {
+  registerClinicSessionRoutes,
+  registerDoctorRoutes,
+  registerDutyRosterRoutes,
+  registerPublicAvailabilityRoutes,
+  registerUnavailabilityRoutes,
+} from '../modules/scheduling/index.js';
 
 import type { Container } from './container.js';
 
@@ -139,6 +145,21 @@ export async function buildApp(container: Container): Promise<FastifyInstance> {
     confirmUnavailability: container.confirmUnavailability,
     deleteUnavailability: container.deleteUnavailability,
     unavailabilityRepository: container.unavailabilityRepository,
+  });
+
+  registerPublicAvailabilityRoutes(app, {
+    pep,
+    getPublicAvailability: container.getPublicAvailability,
+  });
+
+  registerServiceCalendarRoutes(app, {
+    pep,
+    getSession: container.getSession,
+    listServiceCalendar: container.listServiceCalendar,
+    getPublicServiceCalendar: container.getPublicServiceCalendar,
+    createServiceCalendarEntries: container.createServiceCalendarEntries,
+    updateServiceCalendarEntry: container.updateServiceCalendarEntry,
+    deleteServiceCalendarEntry: container.deleteServiceCalendarEntry,
   });
 
   return app;

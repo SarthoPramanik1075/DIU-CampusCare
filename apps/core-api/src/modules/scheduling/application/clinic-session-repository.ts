@@ -125,6 +125,29 @@ export type CancelSessionOutcome =
   | { readonly outcome: 'stale' }
   | { readonly outcome: 'not_found' };
 
+/** One doctor's session on the public availability projection (API §2.2) — counts only, no patient identity of any kind (FR-APT-02, BR-04). */
+export interface PublicAvailabilitySession {
+  readonly sessionId: string;
+  readonly doctorId: string;
+  readonly doctorName: string;
+  readonly designation: string | null;
+  readonly specialisation: string | null;
+  readonly photoUrl: string | null;
+  readonly startsAt: Date;
+  readonly endsAt: Date;
+  readonly status: SessionStatus;
+  readonly bookableSlotCount: number;
+  readonly bookedSlotCount: number;
+}
+
+/** Non-service days are shown with their reason rather than omitted (FR-SCH-11, BR-28). */
+export interface PublicAvailabilityDay {
+  readonly date: string;
+  readonly isServiceDay: boolean;
+  readonly closureReason: string | null;
+  readonly sessions: readonly PublicAvailabilitySession[];
+}
+
 /**
  * Port for API §3.3's clinic-session administration. VR-19 (no two
  * sessions for a doctor may overlap) is enforced by the
@@ -156,4 +179,8 @@ export interface ClinicSessionRepository {
   completeSession(sessionId: string, expectedVersion: number, now: Date): Promise<CompleteSessionOutcome>;
   /** BR-26/BR-27 — every non-terminal appointment in the session transitions to `cancelled` with the fixed reason "Doctor Unavailable" (the caller's own `reason` is recorded against the session, not the appointment). */
   cancelSession(sessionId: string, expectedVersion: number, reason: string): Promise<CancelSessionOutcome>;
+  /** The single Phase-1 location (OI-04/DB-3) — mirrors `DoctorRepository.findDefaultLocationId`. */
+  findDefaultLocationId(): Promise<string>;
+  /** API §2.2's full projection: one entry per date in `[from, to]`, each carrying its service-day status and every non-cancelled session that day. */
+  listPublicAvailability(locationId: string, from: string, to: string, doctorId: string | undefined): Promise<readonly PublicAvailabilityDay[]>;
 }

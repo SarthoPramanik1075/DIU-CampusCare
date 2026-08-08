@@ -42,7 +42,7 @@ function buildHandler(overrides: { readonly repository?: Partial<ClinicSessionRe
     createClinicSession: vi.fn().mockResolvedValue({ outcome: 'created', session: CREATED_SESSION }),
     updateClinicSession: vi.fn(),
     listSessionSlots: vi.fn(),
-    getQueueSummary: vi.fn(),    listOpenAppointments: vi.fn(),    startSession: vi.fn(),    interruptSession: vi.fn(),    countInConsultation: vi.fn(),    completeSession: vi.fn(),    cancelSession: vi.fn(),
+    getQueueSummary: vi.fn(),    listOpenAppointments: vi.fn(),    startSession: vi.fn(),    interruptSession: vi.fn(),    countInConsultation: vi.fn(),    completeSession: vi.fn(),    cancelSession: vi.fn(),    findDefaultLocationId: vi.fn(),    listPublicAvailability: vi.fn(),
     ...overrides.repository,
   };
   const policyStore = { getRequiredInteger: vi.fn((key: string) => Promise.resolve(policyValues[key])) } as unknown as PolicyStore;

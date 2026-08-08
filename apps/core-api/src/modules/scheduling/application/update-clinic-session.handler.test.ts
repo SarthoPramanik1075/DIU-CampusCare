@@ -40,7 +40,7 @@ function buildHandler(overrides: { readonly repository?: Partial<ClinicSessionRe
     createClinicSession: vi.fn(),
     updateClinicSession: vi.fn().mockResolvedValue({ outcome: 'updated', session: { ...SESSION, endsAt: new Date('2026-08-10T07:30:00Z'), version: 3 } }),
     listSessionSlots: vi.fn(),
-    getQueueSummary: vi.fn(),    listOpenAppointments: vi.fn(),    startSession: vi.fn(),    interruptSession: vi.fn(),    countInConsultation: vi.fn(),    completeSession: vi.fn(),    cancelSession: vi.fn(),
+    getQueueSummary: vi.fn(),    listOpenAppointments: vi.fn(),    startSession: vi.fn(),    interruptSession: vi.fn(),    countInConsultation: vi.fn(),    completeSession: vi.fn(),    cancelSession: vi.fn(),    findDefaultLocationId: vi.fn(),    listPublicAvailability: vi.fn(),
     ...overrides.repository,
   };
   const auditRecorder = { recordChange: vi.fn().mockResolvedValue(undefined) } as unknown as AuditRecorder;
