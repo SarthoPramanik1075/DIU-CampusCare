@@ -24,6 +24,25 @@
   flex: 1;
 }
 
+.cc-staff-rail__link {
+  display: block;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: var(--text-sm);
+}
+
+.cc-staff-rail__link:hover {
+  background: var(--color-surface-sunken);
+}
+
+.cc-staff-rail__link--active {
+  background: var(--color-primary-subtle);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
 .cc-staff-rail__footer {
   border-top: var(--border-width) solid var(--color-border);
   padding: var(--space-2);

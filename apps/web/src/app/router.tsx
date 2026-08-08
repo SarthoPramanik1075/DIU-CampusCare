@@ -7,6 +7,8 @@ import { ApiError } from '../infrastructure/api-client.js';
 import { AccountDetailPage } from '../routes/AccountDetailPage.js';
 import { AccountsListPage, type AccountsListSearch } from '../routes/AccountsListPage.js';
 import { ConfirmResetPage } from '../routes/ConfirmResetPage.js';
+import { DoctorDetailPage } from '../routes/DoctorDetailPage.js';
+import { DoctorsListPage, type DoctorsListSearch } from '../routes/DoctorsListPage.js';
 import { ErrorPage } from '../routes/ErrorPage.js';
 import { LandingPage } from '../routes/LandingPage.js';
 import { NoAccessPage } from '../routes/NoAccessPage.js';
@@ -184,6 +186,68 @@ const accountDetailRoute = createRoute({
   },
 });
 
+function isBooleanFlag(value: unknown): value is boolean {
+  return value === true || value === false;
+}
+
+const doctorsListRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/staff/doctors',
+  validateSearch: (search: Record<string, unknown>): DoctorsListSearch =>
+    isBooleanFlag(search.isActive) ? { isActive: search.isActive } : {},
+  loader: async () => {
+    const session = await requireSession('/staff/doctors');
+    // F-09/F-10 are MCS-only (FRONTEND §10.4).
+    if (!session.roles.includes('MCS')) {
+      throw redirect({ to: '/no-access' });
+    }
+    return { session };
+  },
+  component: () => {
+    const { session } = doctorsListRoute.useLoaderData();
+    const search = doctorsListRoute.useSearch();
+    const navigate = doctorsListRoute.useNavigate();
+    return (
+      <DoctorsListPage
+        session={session}
+        search={search}
+        onSearchChange={(next) => {
+          void navigate({ search: next });
+        }}
+        onCreated={(doctor) => {
+          void navigate({ to: '/staff/doctors/$doctorId', params: { doctorId: doctor.doctorId } });
+        }}
+      />
+    );
+  },
+});
+
+const doctorDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/staff/doctors/$doctorId',
+  loader: async ({ params }) => {
+    const session = await requireSession(`/staff/doctors/${params.doctorId}`);
+    if (!session.roles.includes('MCS')) {
+      throw redirect({ to: '/no-access' });
+    }
+    return { session };
+  },
+  component: () => {
+    const { session } = doctorDetailRoute.useLoaderData();
+    const { doctorId } = doctorDetailRoute.useParams();
+    const navigate = doctorDetailRoute.useNavigate();
+    return (
+      <DoctorDetailPage
+        session={session}
+        doctorId={doctorId}
+        onDeleted={() => {
+          void navigate({ to: '/staff/doctors' });
+        }}
+      />
+    );
+  },
+});
+
 const noAccessRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/no-access',
@@ -212,6 +276,8 @@ const routeTree = rootRoute.addChildren([
   operatorHomeRoute,
   accountsListRoute,
   accountDetailRoute,
+  doctorsListRoute,
+  doctorDetailRoute,
   noAccessRoute,
   errorRoute,
   sessionExpiredRoute,
