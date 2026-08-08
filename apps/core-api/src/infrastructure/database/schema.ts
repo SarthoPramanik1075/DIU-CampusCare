@@ -58,6 +58,17 @@ export interface AnnouncementTable {
   created_at: Generated<Date>;
 }
 
+/** FR-SCH-10/BR-28 — non-service days. An exceptions list, not a full calendar (default `is_service_day: false`). */
+export interface ServiceCalendarTable {
+  id: string;
+  location_id: string;
+  calendar_date: string;
+  is_service_day: Generated<boolean>;
+  reason: string;
+  created_by: string;
+  created_at: Generated<Date>;
+}
+
 // ---------------------------------------------------------------------
 // schema: identity
 // ---------------------------------------------------------------------
@@ -178,22 +189,44 @@ export interface StoreStatusOverrideTable {
 }
 
 // ---------------------------------------------------------------------
-// schema: scheduling (columns account-admin's deactivate impact check
-// reads for a human-readable summary — not the full M2 table shape)
+// schema: scheduling (M2 · Schedules)
 // ---------------------------------------------------------------------
 
 export interface DoctorTable {
   id: string;
   user_account_id: string | null;
   full_name: string;
+  designation: string | null;
+  specialisation: string | null;
+  photo_url: string | null;
   location_id: string;
   is_active: Generated<boolean>;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+  version: Generated<number>;
 }
+
+export interface DutyRosterTable {
+  id: string;
+  doctor_id: string;
+  weekday: number;
+  starts_at_local: string;
+  ends_at_local: string;
+  effective_from: string;
+  effective_to: string | null;
+  is_active: Generated<boolean>;
+  created_by: string;
+  created_at: Generated<Date>;
+  version: Generated<number>;
+}
+
+export type SessionStatus = 'scheduled' | 'started' | 'interrupted' | 'completed' | 'cancelled';
 
 export interface ClinicSessionTable {
   id: string;
   doctor_id: string;
   location_id: string;
+  duty_roster_id: string | null;
   session_date: string;
   starts_at: Date;
   ends_at: Date;
@@ -201,7 +234,45 @@ export interface ClinicSessionTable {
   walk_in_allocation_pct: number;
   total_slot_count: number;
   bookable_slot_count: number;
+  status: Generated<SessionStatus>;
+  next_serial: Generated<number>;
+  actually_started_at: Date | null;
+  actually_ended_at: Date | null;
+  change_reason: string | null;
   created_by: string;
+  created_at: Generated<Date>;
+  updated_at: Generated<Date>;
+  version: Generated<number>;
+}
+
+export interface SessionSlotTable {
+  id: string;
+  clinic_session_id: string;
+  slot_index: number;
+  slot_starts_at: Date;
+  is_online_bookable: boolean;
+}
+
+export interface DoctorUnavailabilityTable {
+  id: string;
+  doctor_id: string;
+  /** `daterange` — Kysely has no native range type; read/written as the raw Postgres range literal (`'[2026-08-20,2026-08-24]'`). */
+  period: string;
+  reason: string;
+  created_by: string;
+  created_at: Generated<Date>;
+}
+
+/** DDL-05 (`000_AMENDMENTS.md`) — the two-step leave flow's preview-to-confirm handoff. */
+export interface UnavailabilityPreviewTable {
+  id: string;
+  doctor_id: string;
+  start_date: string;
+  end_date: string;
+  reason: string;
+  affected_appointment_ids: string[];
+  created_at: Generated<Date>;
+  expires_at: Date;
 }
 
 // ---------------------------------------------------------------------
@@ -330,6 +401,7 @@ export interface Database {
   'config.location': LocationTable;
   'config.system_config': SystemConfigTable;
   'config.announcement': AnnouncementTable;
+  'config.service_calendar': ServiceCalendarTable;
   'identity.user_account': UserAccountTable;
   'identity.user_session': UserSessionTable;
   'identity.role': RoleTable;
@@ -340,7 +412,11 @@ export interface Database {
   'identity.student_profile': StudentProfileTable;
   'identity.booking_suspension': BookingSuspensionTable;
   'scheduling.doctor': DoctorTable;
+  'scheduling.duty_roster': DutyRosterTable;
   'scheduling.clinic_session': ClinicSessionTable;
+  'scheduling.session_slot': SessionSlotTable;
+  'scheduling.doctor_unavailability': DoctorUnavailabilityTable;
+  'scheduling.unavailability_preview': UnavailabilityPreviewTable;
   'queueing.appointment': AppointmentTable;
   'pharmacy.store_hours': StoreHoursTable;
   'pharmacy.store_status_override': StoreStatusOverrideTable;

@@ -1,4 +1,5 @@
 import { seedIamPolicies } from '../modules/iam/index.js';
+import { seedSchedulingPolicies } from '../modules/scheduling/index.js';
 
 import { buildApp } from './app.js';
 import { loadConfig } from './config.js';
@@ -8,6 +9,7 @@ async function main(): Promise<void> {
   const config = loadConfig();
   const container = buildContainer(config);
   await seedIamPolicies(container.policyStore);
+  await seedSchedulingPolicies(container.policyStore);
   const app = await buildApp(container);
 
   let shuttingDown = false;

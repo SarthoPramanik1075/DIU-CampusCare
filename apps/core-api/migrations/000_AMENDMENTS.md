@@ -114,7 +114,65 @@ real).
 
 ---
 
+### DDL-05 · no storage for the two-step leave flow's preview token, and no seeded location (M2)
+
+**Found by** implementing API §3.21/§3.22 (FR-SCH-07, the doctor-unavailability
+impact-preview-then-confirm flow) and, separately, by every scheduling table
+carrying `location_id NOT NULL`.
+
+Two independent gaps, bundled into one migration because both are pure
+additions with no interaction:
+
+1. FR-SCH-07 requires confirm to detect "the affected bookings changed since
+   you looked" — API §3.22 documents this exactly as `IMPACT_CHANGED`,
+   comparing the *current* affected set against what preview showed. That
+   requires the preview call's result to be retrievable at confirm time, but
+   DATABASE.md defines no table for it — the same shape of omission DDL-03
+   resolved for the password-reset token.
+2. `scheduling.doctor.location_id`, `scheduling.clinic_session.location_id`
+   and `config.service_calendar.location_id` are all `NOT NULL REFERENCES
+   config.location(id)`, but `config.location` has been empty since M0.5 —
+   nothing before M2 ever needed a location to exist (M1's account creation
+   treats `locationId` as optional). SRS's own `OI-04`/`DB-3` open item
+   records multi-location as unconfirmed and explicitly out of Phase 1
+   scope, so seeding exactly one row is the correct Phase-1-scoped action,
+   not a stand-in for a real location catalogue that doesn't exist yet.
+
+**Applied**, in `008_scheduling_extensions.sql`: one seeded `config.location`
+row (`MAIN` / "DIU Medical Centre"); new table
+`scheduling.unavailability_preview` (id, doctor_id, start_date, end_date,
+reason, affected_appointment_ids uuid[], created_at, expires_at) — no hash,
+since unlike a credential, a leaked preview id reveals nothing an MCS/ADM
+session couldn't already read through the API; one seeded notification
+template (`doctor_unavailability_cancelled`) for the confirm handler's
+outbox row.
+
+---
+
 ## Raised, not taken
+
+### RST-01 · `duty_roster` overlap is an application check, not a constraint
+
+**Found by** implementing API §3.2's `ROSTER_OVERLAP` (VR-19's sibling rule
+for rosters, not itself a numbered VR). `scheduling.clinic_session` gets a
+GiST `EXCLUDE` constraint (`ex_session_no_overlap`) specifically because a
+check-then-insert race is real under concurrent booking-adjacent writes.
+`scheduling.duty_roster` has no equivalent constraint in DATABASE.md's DDL —
+overlap here can only be enforced by an application-level query
+(same doctor + weekday + overlapping local time range + overlapping
+effective-date range among active rows) before the insert.
+
+**Not taken** because duty rosters are low-frequency staff data entry (one
+Medical Center Staff member editing one doctor's weekly template), not a
+high-concurrency path the way session creation is during a booking rush —
+which is exactly the distinction DATABASE.md's own DDL already draws by
+giving one table a GiST constraint and not the other. **Must be revisited**
+if duty-roster editing ever becomes a bulk or concurrent operation (e.g. an
+import tool provisioning many doctors' rosters at once).
+
+---
+
+### UQ-01 · `uq_user_role` blocks re-granting a revoked role
 
 ### UQ-01 · `uq_user_role` blocks re-granting a revoked role
 

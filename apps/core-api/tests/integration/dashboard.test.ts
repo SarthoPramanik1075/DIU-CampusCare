@@ -6,7 +6,6 @@ import type { Database } from '../../src/infrastructure/database/client.js';
 import { KyselyDashboardRepository } from '../../src/modules/dashboard/index.js';
 import { createScratchDatabase, type ScratchDatabase } from '../support/scratch-database.js';
 
-const LOCATION_ID = '01920000-0000-7000-8000-000000003a01';
 const ADMIN_ID = '01920000-0000-7000-8000-000000003a02';
 const STUDENT_ID = '01920000-0000-7000-8000-000000003a03';
 const RECIPIENT_ID = '01920000-0000-7000-8000-000000003a04';
@@ -15,6 +14,8 @@ describe('KyselyDashboardRepository — integration', () => {
   let scratch: ScratchDatabase;
   let db: Kysely<Database>;
   let repository: KyselyDashboardRepository;
+  /** M2's migration (008) seeds the single Phase 1 location — every scratch database has exactly one from the moment it's migrated, so tests read it back rather than manufacturing a competing row. */
+  let LOCATION_ID: string;
 
   beforeAll(async () => {
     scratch = await createScratchDatabase('core');
@@ -23,6 +24,7 @@ describe('KyselyDashboardRepository — integration', () => {
     });
     repository = new KyselyDashboardRepository(db);
 
+    LOCATION_ID = (await db.selectFrom('config.location').select('id').executeTakeFirstOrThrow()).id;
     await db.insertInto('identity.user_account').values({ id: ADMIN_ID, email: 'dash-admin@diu.edu.bd', full_name: 'Admin', status: 'active' }).execute();
     await db
       .insertInto('identity.user_account')
@@ -37,13 +39,12 @@ describe('KyselyDashboardRepository — integration', () => {
     await scratch.drop();
   });
 
-  it('findMedicineStoreState: closed with no hours when no location is configured', async () => {
+  it('findMedicineStoreState: closed with no hours when no store_hours row exists for today', async () => {
     const state = await repository.findMedicineStoreState(new Date());
     expect(state).toEqual({ isOpen: false, opensAt: null, closesAt: null, stateSource: 'scheduled_hours' });
   });
 
   it('findMedicineStoreState: real scheduled hours from pharmacy.store_hours', async () => {
-    await db.insertInto('config.location').values({ id: LOCATION_ID, code: 'MAIN', name: 'Main Campus' }).execute();
     // 2026-08-10 is a Monday — Postgres/Intl DOW convention, weekday 1.
     await db
       .insertInto('pharmacy.store_hours')
