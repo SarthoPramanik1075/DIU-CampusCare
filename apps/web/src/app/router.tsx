@@ -1,7 +1,11 @@
+import { isRoleCode } from '@campuscare/shared-types';
 import { createRootRoute, createRoute, createRouter, redirect, Outlet } from '@tanstack/react-router';
 
-import { fetchSession } from '../features/auth/api.js';
+import type { AccountStatus } from '../features/accounts/api.js';
+import { fetchSession, type SessionDto } from '../features/auth/api.js';
 import { ApiError } from '../infrastructure/api-client.js';
+import { AccountDetailPage } from '../routes/AccountDetailPage.js';
+import { AccountsListPage, type AccountsListSearch } from '../routes/AccountsListPage.js';
 import { ConfirmResetPage } from '../routes/ConfirmResetPage.js';
 import { ErrorPage } from '../routes/ErrorPage.js';
 import { LandingPage } from '../routes/LandingPage.js';
@@ -23,6 +27,28 @@ const rootRoute = createRootRoute({
   notFoundComponent: NotFoundPage,
   errorComponent: ({ error }) => <ErrorPage error={error} />,
 });
+
+/**
+ * Shared by every role-gated route's `loader`: a `loader` runs outside
+ * React, so it calls `fetchSession()` directly rather than the
+ * `useSession` hook. A 401 sends the caller to sign in with a way back
+ * (`redirectTo`); any other failure is a real error and propagates to
+ * `errorComponent`.
+ */
+async function requireSession(redirectTo: string): Promise<SessionDto> {
+  try {
+    return await fetchSession();
+  } catch (error) {
+    if (error instanceof ApiError && error.status === 401) {
+      throw redirect({ to: '/sign-in', search: { redirectTo } });
+    }
+    throw error;
+  }
+}
+
+function isAccountStatus(value: unknown): value is AccountStatus {
+  return value === 'pending' || value === 'active' || value === 'suspended' || value === 'deactivated';
+}
 
 const indexRoute = createRoute({
   getParentRoute: () => rootRoute,
@@ -56,15 +82,7 @@ const studentDashboardRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/student',
   loader: async () => {
-    let session;
-    try {
-      session = await fetchSession();
-    } catch (error) {
-      if (error instanceof ApiError && error.status === 401) {
-        throw redirect({ to: '/sign-in', search: { redirectTo: '/student' } });
-      }
-      throw error;
-    }
+    const session = await requireSession('/student');
     // FR-DASH-01: the dashboard is a student-only surface. Checked here,
     // against the roles the session itself carries, rather than letting
     // the dashboard query's own 403 FORBIDDEN (GetStudentDashboardQuery)
@@ -77,6 +95,58 @@ const studentDashboardRoute = createRoute({
   component: () => {
     const { session } = studentDashboardRoute.useLoaderData();
     return <StudentDashboardPage session={session} />;
+  },
+});
+
+const accountsListRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/users',
+  validateSearch: (search: Record<string, unknown>): AccountsListSearch => ({
+    ...(typeof search.q === 'string' ? { q: search.q } : {}),
+    ...(isAccountStatus(search.status) ? { status: search.status } : {}),
+    ...(isRoleCode(search.role) && search.role !== 'ANON' && search.role !== 'STU' ? { role: search.role } : {}),
+  }),
+  loader: async () => {
+    const session = await requireSession('/admin/users');
+    // A-02/A-03/A-04 are ADM-only (FR-AUTH-12, PRM-13).
+    if (!session.roles.includes('ADM')) {
+      throw redirect({ to: '/no-access' });
+    }
+    return { session };
+  },
+  component: () => {
+    const { session } = accountsListRoute.useLoaderData();
+    const search = accountsListRoute.useSearch();
+    const navigate = accountsListRoute.useNavigate();
+    return (
+      <AccountsListPage
+        session={session}
+        search={search}
+        onSearchChange={(next) => {
+          void navigate({ search: next });
+        }}
+        onCreated={(account) => {
+          void navigate({ to: '/admin/users/$userId', params: { userId: account.userId } });
+        }}
+      />
+    );
+  },
+});
+
+const accountDetailRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/admin/users/$userId',
+  loader: async ({ params }) => {
+    const session = await requireSession(`/admin/users/${params.userId}`);
+    if (!session.roles.includes('ADM')) {
+      throw redirect({ to: '/no-access' });
+    }
+    return { session };
+  },
+  component: () => {
+    const { session } = accountDetailRoute.useLoaderData();
+    const { userId } = accountDetailRoute.useParams();
+    return <AccountDetailPage session={session} userId={userId} />;
   },
 });
 
@@ -104,6 +174,8 @@ const routeTree = rootRoute.addChildren([
   requestResetRoute,
   confirmResetRoute,
   studentDashboardRoute,
+  accountsListRoute,
+  accountDetailRoute,
   noAccessRoute,
   errorRoute,
   sessionExpiredRoute,

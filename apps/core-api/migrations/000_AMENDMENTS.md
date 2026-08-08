@@ -147,6 +147,34 @@ regrant to work** — replace the constraint with
 
 ---
 
+### API-01 · `isClinicalStaff` is a write-only field on the account wire shape
+
+**Found by** building A-04 (FRONTEND §10.6, `RoleAssignmentDialog`). API §1.3's
+own worked example for `GET /users/{id}` lists exactly nine fields and does
+not include `isClinicalStaff`, even though `PATCH /users/{id}` accepts it as
+a write. Followed exactly as documented in
+`account-admin.routes.ts`'s `accountDetailDto` — the domain object still
+carries it (VR-04's grant check needs the real value), only the wire DTO
+omits it.
+
+The consequence lands on A-04's own stated behaviour: *"`CNP` is disabled
+unless the account is flagged clinical staff."* A web client has no field to
+read that flag from, so it cannot compute the disabled state the spec
+describes.
+
+**Not taken** because adding the field to the response is an API.md change,
+not a frontend workaround, and doing it silently would mean the shipped
+client and the documented contract disagree without a record of why. The
+Administrator console instead lets every assignable-role checkbox stay
+enabled once a reason is entered, and a `CNP` grant on a non-clinical-staff
+account is refused by the server's existing VR-04 check — the same
+rejection A-04 always needed to handle for the race case, just handling the
+common case too. **Should be resolved by adding `isClinicalStaff` to
+`accountDetailDto`** so the checkbox can be genuinely pre-disabled rather
+than only rejected after the attempt.
+
+---
+
 ### RLS-01 · the request policy blocks student intake
 
 **Where** `apps/counseling-api/migrations/003_grants_rls.sql`, applied

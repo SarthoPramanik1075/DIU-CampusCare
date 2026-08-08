@@ -1,0 +1,102 @@
+.cc-admin-shell {
+  display: flex;
+  min-height: 100vh;
+}
+
+.cc-admin-rail {
+  width: var(--rail-width);
+  flex-shrink: 0;
+  display: flex;
+  flex-direction: column;
+  border-right: var(--border-width) solid var(--color-border);
+  background: var(--color-surface);
+}
+
+.cc-admin-rail__brand {
+  display: block;
+  padding: var(--space-2) var(--space-2);
+  font-weight: 700;
+  color: var(--color-text);
+  text-decoration: none;
+}
+
+.cc-admin-rail__nav {
+  flex: 1;
+  padding: 0 var(--space-1);
+}
+
+.cc-admin-rail__group-label {
+  margin: var(--space-2) var(--space-1) var(--space-0-5);
+  padding: 0 var(--space-1);
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.cc-admin-rail__link {
+  display: block;
+  padding: var(--space-1) var(--space-2);
+  border-radius: var(--radius-sm);
+  color: var(--color-text);
+  text-decoration: none;
+  font-size: var(--text-sm);
+}
+
+.cc-admin-rail__link:hover {
+  background: var(--color-surface-sunken);
+}
+
+.cc-admin-rail__link--active {
+  background: var(--color-primary-subtle);
+  color: var(--color-primary);
+  font-weight: 600;
+}
+
+.cc-admin-rail__footer {
+  border-top: var(--border-width) solid var(--color-border);
+  padding: var(--space-2);
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+}
+
+.cc-admin-rail__user {
+  margin: 0;
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.cc-admin-rail__signout {
+  align-self: flex-start;
+  padding: 0;
+  border: none;
+  background: none;
+  color: var(--color-primary);
+  font-size: var(--text-sm);
+  cursor: pointer;
+  text-decoration: underline;
+}
+
+.cc-admin-shell__main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.cc-admin-shell__header {
+  border-bottom: var(--border-width) solid var(--color-border);
+  padding: var(--space-2) var(--space-3);
+}
+
+.cc-admin-shell__header h1 {
+  margin: 0;
+  font-size: var(--text-xl);
+}
+
+.cc-admin-shell__content {
+  flex: 1;
+  padding: var(--space-3);
+}

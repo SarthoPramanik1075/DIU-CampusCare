@@ -52,6 +52,11 @@ export function LandingPage(): JSX.Element {
             <Link to="/student">Go to your dashboard</Link>
           </p>
         )}
+        {currentSession !== null && currentSession !== undefined && currentSession.roles.includes('ADM') && (
+          <p style={{ marginTop: 0 }}>
+            <Link to="/admin/users">Go to account administration</Link>
+          </p>
+        )}
         <AnnouncementList />
       </main>
     </>

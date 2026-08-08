@@ -1,4 +1,4 @@
-import { useId, type JSX, type MouseEvent, type ReactNode } from 'react';
+import { forwardRef, useId, type MouseEvent, type ReactNode } from 'react';
 
 import './Button.css';
 import { Icon, type IconName } from './icons.js';
@@ -31,7 +31,8 @@ export interface ButtonProps {
  * is a stated keyboard requirement — moving focus on completion would
  * strand a keyboard user.
  */
-export function Button(props: ButtonProps): JSX.Element {
+/** Forwards its ref to the underlying `<button>` — needed by callers that manage focus explicitly, e.g. `ConfirmDialog`'s §5.5 requirement that initial focus lands on the cancel/safe action. */
+export const Button = forwardRef<HTMLButtonElement, ButtonProps>(function Button(props, ref) {
   const { variant, children, size = 'md', icon, loading = false, disabled = false, disabledReason, type = 'button' } =
     props;
   const isInert = disabled || loading;
@@ -49,6 +50,7 @@ export function Button(props: ButtonProps): JSX.Element {
   return (
     <>
       <button
+        ref={ref}
         type={type}
         className={`cc-button cc-button--${variant} cc-button--${size}`}
         aria-disabled={isInert ? 'true' : undefined}
@@ -71,4 +73,4 @@ export function Button(props: ButtonProps): JSX.Element {
       )}
     </>
   );
-}
+});

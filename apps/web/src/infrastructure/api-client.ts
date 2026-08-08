@@ -9,13 +9,16 @@ export class ApiError extends Error {
   readonly status: number;
   readonly code: string;
   readonly correlationId: string;
+  /** API §0.4 — endpoint-specific recovery context, e.g. `CONFIRMATION_REQUIRED`'s active-booking list. Drives behaviour, not display. */
+  readonly details: Readonly<Record<string, unknown>> | undefined;
 
-  constructor(status: number, code: string, message: string, correlationId: string) {
+  constructor(status: number, code: string, message: string, correlationId: string, details?: Readonly<Record<string, unknown>>) {
     super(message);
     this.name = 'ApiError';
     this.status = status;
     this.code = code;
     this.correlationId = correlationId;
+    this.details = details;
   }
 }
 
@@ -39,7 +42,7 @@ async function handleResponse<T>(response: Response): Promise<T> {
   if (!response.ok) {
     const body: unknown = await response.json().catch(() => undefined);
     if (isErrorResponse(body)) {
-      throw new ApiError(response.status, body.error.code, body.error.message, body.error.correlationId);
+      throw new ApiError(response.status, body.error.code, body.error.message, body.error.correlationId, body.error.details);
     }
     throw new MalformedApiResponseError(response.status);
   }

@@ -1,0 +1,77 @@
+.cc-dialog {
+  border: none;
+  border-radius: var(--radius-lg);
+  box-shadow: var(--shadow-lg);
+  padding: 0;
+  max-width: 480px;
+  width: calc(100% - var(--space-4));
+}
+
+.cc-dialog::backdrop {
+  background: rgb(22 25 29 / 0.5);
+}
+
+.cc-dialog__content {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-2);
+  padding: var(--space-3);
+}
+
+.cc-dialog__title {
+  margin: 0;
+  font-size: var(--text-xl);
+}
+
+.cc-dialog__consequence {
+  margin: 0;
+  color: var(--color-text-secondary);
+}
+
+.cc-dialog__counter {
+  margin: calc(var(--space-1) * -1) 0 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}
+
+.cc-dialog__actions {
+  display: flex;
+  justify-content: flex-end;
+  gap: var(--space-1);
+  margin-top: var(--space-1);
+}
+
+.cc-dialog--form {
+  max-width: 560px;
+}
+
+.cc-dialog__section-label {
+  margin: 0;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+}
+
+.cc-dialog__checkbox-row {
+  display: flex;
+  align-items: flex-start;
+  gap: var(--space-1);
+  padding: var(--space-0-5) 0;
+}
+
+.cc-dialog__checkbox-row input[type='checkbox'] {
+  margin-top: 3px;
+}
+
+.cc-dialog__checkbox-label {
+  display: flex;
+  flex-direction: column;
+}
+
+.cc-dialog__checkbox-note {
+  margin: 0;
+  font-size: var(--text-sm);
+  color: var(--color-text-secondary);
+}

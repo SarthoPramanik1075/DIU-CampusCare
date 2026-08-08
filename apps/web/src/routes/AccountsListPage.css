@@ -1,0 +1,74 @@
+.cc-accounts-toolbar {
+  display: flex;
+  align-items: flex-end;
+  gap: var(--space-2);
+  margin-bottom: var(--space-3);
+  flex-wrap: wrap;
+}
+
+.cc-accounts-toolbar__search {
+  flex: 1;
+  min-width: 220px;
+}
+
+.cc-accounts-toolbar__field {
+  display: flex;
+  flex-direction: column;
+  gap: var(--space-0-5);
+}
+
+.cc-accounts-toolbar__field label {
+  font-size: var(--text-sm);
+  font-weight: 600;
+}
+
+.cc-accounts-toolbar__field select {
+  height: 40px;
+  border: var(--border-width-strong) solid var(--color-border-strong);
+  border-radius: var(--radius-sm);
+  padding: 0 var(--space-1);
+  font: inherit;
+  background: var(--color-bg);
+}
+
+.cc-accounts-table {
+  width: 100%;
+  border-collapse: collapse;
+}
+
+.cc-accounts-table th {
+  text-align: left;
+  font-size: var(--text-xs);
+  font-weight: 700;
+  letter-spacing: 0.04em;
+  text-transform: uppercase;
+  color: var(--color-text-secondary);
+  padding: var(--space-1) var(--space-2);
+  border-bottom: var(--border-width-strong) solid var(--color-border);
+}
+
+.cc-accounts-table td {
+  padding: var(--space-2);
+  border-bottom: var(--border-width) solid var(--color-border);
+  vertical-align: top;
+}
+
+.cc-accounts-table tbody tr:hover {
+  background: var(--color-surface);
+}
+
+.cc-accounts-table a {
+  color: var(--color-text);
+  font-weight: 600;
+  text-decoration: none;
+}
+
+.cc-accounts-table a:hover {
+  text-decoration: underline;
+}
+
+.cc-accounts-table__status {
+  display: inline-flex;
+  align-items: center;
+  gap: var(--space-0-5);
+}
