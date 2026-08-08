@@ -11,9 +11,11 @@ import { ErrorPage } from '../routes/ErrorPage.js';
 import { LandingPage } from '../routes/LandingPage.js';
 import { NoAccessPage } from '../routes/NoAccessPage.js';
 import { NotFoundPage } from '../routes/NotFoundPage.js';
+import { OperatorHomePage } from '../routes/OperatorHomePage.js';
 import { RequestResetPage } from '../routes/RequestResetPage.js';
 import { SessionExpiredPage } from '../routes/SessionExpiredPage.js';
 import { SignInPage } from '../routes/SignInPage.js';
+import { StaffHomePage } from '../routes/StaffHomePage.js';
 import { StudentDashboardPage } from '../routes/StudentDashboardPage.js';
 
 /**
@@ -98,6 +100,38 @@ const studentDashboardRoute = createRoute({
   },
 });
 
+const staffHomeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/staff',
+  loader: async () => {
+    const session = await requireSession('/staff');
+    if (!session.roles.includes('MCS')) {
+      throw redirect({ to: '/no-access' });
+    }
+    return { session };
+  },
+  component: () => {
+    const { session } = staffHomeRoute.useLoaderData();
+    return <StaffHomePage session={session} />;
+  },
+});
+
+const operatorHomeRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/operator',
+  loader: async () => {
+    const session = await requireSession('/operator');
+    if (!session.roles.includes('STO')) {
+      throw redirect({ to: '/no-access' });
+    }
+    return { session };
+  },
+  component: () => {
+    const { session } = operatorHomeRoute.useLoaderData();
+    return <OperatorHomePage session={session} />;
+  },
+});
+
 const accountsListRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/admin/users',
@@ -174,6 +208,8 @@ const routeTree = rootRoute.addChildren([
   requestResetRoute,
   confirmResetRoute,
   studentDashboardRoute,
+  staffHomeRoute,
+  operatorHomeRoute,
   accountsListRoute,
   accountDetailRoute,
   noAccessRoute,

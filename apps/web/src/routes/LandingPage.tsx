@@ -1,3 +1,4 @@
+import type { RoleCode } from '@campuscare/shared-types';
 import { useQueryClient } from '@tanstack/react-query';
 import { Link } from '@tanstack/react-router';
 import type { JSX } from 'react';
@@ -5,6 +6,22 @@ import type { JSX } from 'react';
 import { AnnouncementList } from '../features/announcements/AnnouncementList.js';
 import { useLogout, useSession } from '../features/auth/use-session.js';
 import { AppHeader } from '../shared/AppHeader.js';
+
+/**
+ * Each role's real home, once it has one. `DOC` has none — FRONTEND §10.8
+ * records that as a decision, not a gap ("no Phase 1 function requires it";
+ * `/staff` covers the doctor-duty workflow) — and `CNP` has none yet either:
+ * every counseling screen is required to carry the crisis banner (FR-CNS-03),
+ * and its content is the still-unsupplied `[R3]` protocol
+ * (`apps/counseling-api/content/crisis-protocol/README.md`), the same
+ * blocking dependency that already makes `counseling-api` refuse to start.
+ */
+const ROLE_HOME: Partial<Record<RoleCode, { readonly to: string; readonly label: string }>> = {
+  STU: { to: '/student', label: 'Go to your dashboard' },
+  MCS: { to: '/staff', label: 'Go to the medical centre' },
+  STO: { to: '/operator', label: 'Go to the medicine store' },
+  ADM: { to: '/admin/users', label: 'Go to account administration' },
+};
 
 /**
  * P-01 · Landing / public availability (FRONTEND §10.1) — the M0.5 vertical
@@ -47,16 +64,15 @@ export function LandingPage(): JSX.Element {
         )}
       </AppHeader>
       <main style={{ maxWidth: 'var(--container-content)', margin: '0 auto', padding: 'var(--space-4) var(--space-3)' }}>
-        {currentSession !== null && currentSession !== undefined && currentSession.roles.includes('STU') && (
-          <p style={{ marginTop: 0 }}>
-            <Link to="/student">Go to your dashboard</Link>
-          </p>
-        )}
-        {currentSession !== null && currentSession !== undefined && currentSession.roles.includes('ADM') && (
-          <p style={{ marginTop: 0 }}>
-            <Link to="/admin/users">Go to account administration</Link>
-          </p>
-        )}
+        {currentSession?.roles.map((role) => {
+          const home = ROLE_HOME[role];
+          if (home === undefined) return null;
+          return (
+            <p key={role} style={{ marginTop: 0 }}>
+              <Link to={home.to}>{home.label}</Link>
+            </p>
+          );
+        })}
         <AnnouncementList />
       </main>
     </>
