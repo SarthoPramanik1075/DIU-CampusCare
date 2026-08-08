@@ -157,6 +157,12 @@ export default tseslint.config(
     rules: {
       ...jsxA11y.configs.recommended.rules,
       ...reactHooks.configs.recommended.rules,
+      // TanStack Router's documented loader/beforeLoad redirect pattern is
+      // `throw redirect(...)`, which throws a `Response`, not an `Error`.
+      '@typescript-eslint/only-throw-error': [
+        'error',
+        { allow: [{ from: 'lib', name: 'Response' }] },
+      ],
     },
   },
 

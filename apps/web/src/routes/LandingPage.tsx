@@ -47,6 +47,11 @@ export function LandingPage(): JSX.Element {
         )}
       </AppHeader>
       <main style={{ maxWidth: 'var(--container-content)', margin: '0 auto', padding: 'var(--space-4) var(--space-3)' }}>
+        {currentSession !== null && currentSession !== undefined && currentSession.roles.includes('STU') && (
+          <p style={{ marginTop: 0 }}>
+            <Link to="/student">Go to your dashboard</Link>
+          </p>
+        )}
         <AnnouncementList />
       </main>
     </>

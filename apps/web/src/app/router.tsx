@@ -1,5 +1,7 @@
-import { createRootRoute, createRoute, createRouter, Outlet } from '@tanstack/react-router';
+import { createRootRoute, createRoute, createRouter, redirect, Outlet } from '@tanstack/react-router';
 
+import { fetchSession } from '../features/auth/api.js';
+import { ApiError } from '../infrastructure/api-client.js';
 import { ConfirmResetPage } from '../routes/ConfirmResetPage.js';
 import { ErrorPage } from '../routes/ErrorPage.js';
 import { LandingPage } from '../routes/LandingPage.js';
@@ -8,6 +10,7 @@ import { NotFoundPage } from '../routes/NotFoundPage.js';
 import { RequestResetPage } from '../routes/RequestResetPage.js';
 import { SessionExpiredPage } from '../routes/SessionExpiredPage.js';
 import { SignInPage } from '../routes/SignInPage.js';
+import { StudentDashboardPage } from '../routes/StudentDashboardPage.js';
 
 /**
  * Code-based routing (no file-based codegen) — matches M0.5's original
@@ -49,6 +52,34 @@ const confirmResetRoute = createRoute({
   component: ConfirmResetPage,
 });
 
+const studentDashboardRoute = createRoute({
+  getParentRoute: () => rootRoute,
+  path: '/student',
+  loader: async () => {
+    let session;
+    try {
+      session = await fetchSession();
+    } catch (error) {
+      if (error instanceof ApiError && error.status === 401) {
+        throw redirect({ to: '/sign-in', search: { redirectTo: '/student' } });
+      }
+      throw error;
+    }
+    // FR-DASH-01: the dashboard is a student-only surface. Checked here,
+    // against the roles the session itself carries, rather than letting
+    // the dashboard query's own 403 FORBIDDEN (GetStudentDashboardQuery)
+    // surface as a generic error banner.
+    if (!session.roles.includes('STU')) {
+      throw redirect({ to: '/no-access' });
+    }
+    return { session };
+  },
+  component: () => {
+    const { session } = studentDashboardRoute.useLoaderData();
+    return <StudentDashboardPage session={session} />;
+  },
+});
+
 const noAccessRoute = createRoute({
   getParentRoute: () => rootRoute,
   path: '/no-access',
@@ -72,6 +103,7 @@ const routeTree = rootRoute.addChildren([
   signInRoute,
   requestResetRoute,
   confirmResetRoute,
+  studentDashboardRoute,
   noAccessRoute,
   errorRoute,
   sessionExpiredRoute,
