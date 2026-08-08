@@ -39,4 +39,13 @@ export async function seedSchedulingPolicies(policyStore: PolicyStore): Promise<
     maxValue: '30',
     description: 'How many days ahead students may view and book published sessions (OI-07, FR-SCH-12, VR-14).',
   });
+
+  await policyStore.defineIfAbsent({
+    key: 'scheduling.session.bookingCutoffMinutesBeforeStart',
+    valueType: 'integer',
+    valueText: '0',
+    minValue: '0',
+    maxValue: '1440',
+    description: 'How long before a session starts online booking closes (FR-APT-11). Default: session start.',
+  });
 }

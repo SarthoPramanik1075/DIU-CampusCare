@@ -179,6 +179,37 @@ ever deleted) holds regardless of this grant existing.
 
 ---
 
+### GRANT-02 · `scheduling.session_slot` needs `DELETE`, for the same reason as GRANT-01 (M2)
+
+**Found live**, the same way as GRANT-01: `PATCH /api/v1/sessions/{id}`
+against a scheduled session's end time succeeded on `clinic_session` (its
+`total_slot_count`/`bookable_slot_count`/`version` all updated correctly)
+but the response came back `500` — `permission denied for table
+session_slot`. Confirmed by direct inspection: the `clinic_session` row had
+already moved to `version: 2` while `scheduling.session_slot` still held
+the stale pre-update rows, exactly the half-applied state a genuine
+mid-request permission failure produces.
+
+Changing a session's timing, slot length or walk-in allocation changes how
+many `session_slot` rows should exist and where — a shrinking slot count
+has no well-defined row-for-row mapping to the old set, so the
+regeneration this handler needs is delete-the-old-set-then-insert-the-new-
+one, not a patch in place. `005_grants.sql`'s P4 policy withholds `DELETE`
+from `campuscare_core_app` on every table, `session_slot` included.
+
+**Applied**, in `010_session_slot_delete_grant.sql`: `GRANT DELETE ON
+scheduling.session_slot TO campuscare_core_app`. Safe to scope this
+narrowly for the same reason GRANT-01 was: `session_slot` rows carry no
+appointment or patient data (BR-04) and are themselves a pure
+materialisation of `clinic_session`'s own configuration, not a record with
+independent retention value. `queueing.appointment.session_slot_id` (no
+`ON DELETE CASCADE`) still makes it physically impossible to delete a slot
+a real booking references — `PATCH`'s own `CAPACITY_BELOW_BOOKINGS` check
+keeps ordinary operation from ever reaching that path, and the foreign key
+is the backstop if it somehow does.
+
+---
+
 ## Raised, not taken
 
 ### RST-01 · `duty_roster` overlap is an application check, not a constraint

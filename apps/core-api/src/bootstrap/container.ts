@@ -50,18 +50,25 @@ import {
   type SsoClient,
 } from '../modules/iam/index.js';
 import {
+  CreateClinicSessionHandler,
   CreateDoctorHandler,
   CreateDutyRosterHandler,
   DeactivateDoctorHandler,
   DeleteDoctorHandler,
   DeleteDutyRosterHandler,
+  GetClinicSessionQuery,
   GetDoctorQuery,
+  GetSessionSlotsQuery,
+  KyselyClinicSessionRepository,
   KyselyDoctorRepository,
   KyselyDutyRosterRepository,
+  ListClinicSessionsQuery,
   ListDoctorsQuery,
   ListDutyRostersQuery,
+  UpdateClinicSessionHandler,
   UpdateDoctorHandler,
   UpdateDutyRosterHandler,
+  type ClinicSessionRepository,
   type DoctorRepository,
   type DutyRosterRepository,
 } from '../modules/scheduling/index.js';
@@ -118,6 +125,11 @@ export interface Container {
   readonly createDutyRoster: CreateDutyRosterHandler;
   readonly updateDutyRoster: UpdateDutyRosterHandler;
   readonly deleteDutyRoster: DeleteDutyRosterHandler;
+  readonly listClinicSessions: ListClinicSessionsQuery;
+  readonly getClinicSession: GetClinicSessionQuery;
+  readonly createClinicSession: CreateClinicSessionHandler;
+  readonly updateClinicSession: UpdateClinicSessionHandler;
+  readonly getSessionSlots: GetSessionSlotsQuery;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -223,6 +235,13 @@ export function buildContainer(config: AppConfig): Container {
   const updateDutyRoster = new UpdateDutyRosterHandler(dutyRosterRepository, auditRecorder);
   const deleteDutyRoster = new DeleteDutyRosterHandler(dutyRosterRepository, auditRecorder);
 
+  const clinicSessionRepository: ClinicSessionRepository = new KyselyClinicSessionRepository(db);
+  const listClinicSessions = new ListClinicSessionsQuery(clinicSessionRepository);
+  const getClinicSession = new GetClinicSessionQuery(clinicSessionRepository);
+  const createClinicSession = new CreateClinicSessionHandler(clinicSessionRepository, policyStore, auditRecorder, clock);
+  const updateClinicSession = new UpdateClinicSessionHandler(clinicSessionRepository, auditRecorder, clock);
+  const getSessionSlots = new GetSessionSlotsQuery(clinicSessionRepository, policyStore);
+
   return {
     config,
     logger,
@@ -267,6 +286,11 @@ export function buildContainer(config: AppConfig): Container {
     createDutyRoster,
     updateDutyRoster,
     deleteDutyRoster,
+    listClinicSessions,
+    getClinicSession,
+    createClinicSession,
+    updateClinicSession,
+    getSessionSlots,
   };
 }
 

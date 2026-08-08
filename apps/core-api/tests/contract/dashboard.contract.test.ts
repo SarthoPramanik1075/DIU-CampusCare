@@ -245,7 +245,7 @@ async function buildTestApp(): Promise<{ app: FastifyInstance; dashboardReposito
     listDutyRosters: undefined as unknown as Container['listDutyRosters'],
     createDutyRoster: undefined as unknown as Container['createDutyRoster'],
     updateDutyRoster: undefined as unknown as Container['updateDutyRoster'],
-    deleteDutyRoster: undefined as unknown as Container['deleteDutyRoster'],
+    deleteDutyRoster: undefined as unknown as Container['deleteDutyRoster'],    listClinicSessions: undefined as unknown as Container['listClinicSessions'],    getClinicSession: undefined as unknown as Container['getClinicSession'],    createClinicSession: undefined as unknown as Container['createClinicSession'],    updateClinicSession: undefined as unknown as Container['updateClinicSession'],    getSessionSlots: undefined as unknown as Container['getSessionSlots'],
   };
 
   return { app: await buildApp(container), dashboardRepository };

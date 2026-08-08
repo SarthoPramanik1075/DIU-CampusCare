@@ -296,6 +296,8 @@ export interface AppointmentTable {
   id: string;
   appointment_ref: string;
   clinic_session_id: string;
+  /** NULL for walk-ins (`ck_appointment_walkin_slot`) — set only for `origin: 'booked'`. */
+  session_slot_id: string | null;
   student_id: string | null;
   /** `ck_appointment_subject` — set when `student_id` is null (an unregistered walk-in, FR-APT-36). */
   unregistered_name: string | null;

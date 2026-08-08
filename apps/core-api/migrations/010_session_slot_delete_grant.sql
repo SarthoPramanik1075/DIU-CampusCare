@@ -1,0 +1,28 @@
+-- =====================================================================
+-- campuscare_core — 010 DELETE grant for scheduling.session_slot (M2 · Schedules)
+--
+-- One addition, recorded as GRANT-02 in 000_AMENDMENTS.md. Does not
+-- modify 001-009 (an applied migration is immutable — see
+-- packages/db-tools/src/migrate.ts's checksum guard).
+-- =====================================================================
+
+-- `PATCH /api/v1/sessions/{id}` (API §3.3) lets staff change a scheduled
+-- session's timing, slot length or walk-in allocation — any of which
+-- changes how many `session_slot` rows should exist and where they fall.
+-- The derived rows are regenerated (delete the old set, insert the new
+-- one) rather than patched in place, because a shrinking slot count has
+-- no well-defined 1:1 mapping from old rows to new ones. Found live: the
+-- first real `PATCH` against a scheduled session's end time succeeded on
+-- `clinic_session` but threw `permission denied for table session_slot`
+-- on the regeneration step — 005_grants.sql withholds DELETE from
+-- `campuscare_core_app` everywhere, deliberately, per P4/NFR-RET-01.
+--
+-- This is safe to grant narrowly: `session_slot` rows carry no
+-- appointment or patient data (BR-04) and are themselves a derived
+-- materialisation of `clinic_session`'s own configuration, not a record
+-- with independent retention value. `queueing.appointment
+-- .session_slot_id` (no `ON DELETE CASCADE`) still makes it physically
+-- impossible to delete a slot a real booking references — `PATCH`'s own
+-- `CAPACITY_BELOW_BOOKINGS` check keeps that path from being reached in
+-- ordinary operation, and the foreign key is the backstop if it ever is.
+GRANT DELETE ON scheduling.session_slot TO campuscare_core_app;

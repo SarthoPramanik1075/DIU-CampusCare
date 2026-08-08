@@ -9,7 +9,7 @@ import { REDACTED_PATHS, REDACTION_CENSOR } from '../kernel/logging/redaction.js
 import { registerAnnouncementRoutes } from '../modules/config/index.js';
 import { registerDashboardRoutes } from '../modules/dashboard/index.js';
 import { registerAccountAdminRoutes, registerAuthRoutes, registerOwnProfileRoutes } from '../modules/iam/index.js';
-import { registerDoctorRoutes, registerDutyRosterRoutes } from '../modules/scheduling/index.js';
+import { registerClinicSessionRoutes, registerDoctorRoutes, registerDutyRosterRoutes } from '../modules/scheduling/index.js';
 
 import type { Container } from './container.js';
 
@@ -115,6 +115,16 @@ export async function buildApp(container: Container): Promise<FastifyInstance> {
     createDutyRoster: container.createDutyRoster,
     updateDutyRoster: container.updateDutyRoster,
     deleteDutyRoster: container.deleteDutyRoster,
+  });
+
+  registerClinicSessionRoutes(app, {
+    pep,
+    getSession: container.getSession,
+    listClinicSessions: container.listClinicSessions,
+    getClinicSession: container.getClinicSession,
+    createClinicSession: container.createClinicSession,
+    updateClinicSession: container.updateClinicSession,
+    getSessionSlots: container.getSessionSlots,
   });
 
   return app;

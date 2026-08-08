@@ -61,3 +61,23 @@ export { DeleteDutyRosterHandler, type DeleteDutyRosterInput } from './applicati
 export { ListDutyRostersQuery } from './application/queries/list-duty-rosters.query.js';
 export { KyselyDutyRosterRepository } from './infrastructure/duty-roster.repository.js';
 export { registerDutyRosterRoutes, type DutyRosterRouteDeps } from './interface/http/duty-roster.routes.js';
+
+export type {
+  ClinicSessionListFilter,
+  ClinicSessionListItem,
+  ClinicSessionRepository,
+  CreateClinicSessionInput,
+  CreateClinicSessionResult,
+  QueueSummary,
+  ServiceCalendarClosure,
+  SessionSlotItem,
+  UpdateClinicSessionInput,
+  UpdateClinicSessionOutcome,
+} from './application/clinic-session-repository.js';
+export { CreateClinicSessionHandler, doctorNotFoundForSessionError, type CreateClinicSessionCommandInput } from './application/create-clinic-session.handler.js';
+export { UpdateClinicSessionHandler, clinicSessionNotFoundError, type UpdateClinicSessionCommandInput } from './application/update-clinic-session.handler.js';
+export { GetClinicSessionQuery, type ClinicSessionDetail } from './application/queries/get-clinic-session.query.js';
+export { ListClinicSessionsQuery } from './application/queries/list-clinic-sessions.query.js';
+export { GetSessionSlotsQuery, type SessionSlotsResult } from './application/queries/get-session-slots.query.js';
+export { KyselyClinicSessionRepository } from './infrastructure/clinic-session.repository.js';
+export { registerClinicSessionRoutes, type ClinicSessionRouteDeps } from './interface/http/clinic-session.routes.js';
