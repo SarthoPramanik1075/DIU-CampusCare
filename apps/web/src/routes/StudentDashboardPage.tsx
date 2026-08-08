@@ -51,6 +51,7 @@ export function StudentDashboardPage({ session }: StudentDashboardPageProps): JS
       </AppHeader>
 
       <main style={{ maxWidth: 'var(--container-content)', margin: '0 auto', padding: 'var(--space-3)' }}>
+        <h1 style={{ marginTop: 0 }}>Dashboard</h1>
         {dashboard.isPending && (
           <div style={{ display: 'flex', flexDirection: 'column', gap: 'var(--space-2)' }} aria-busy="true">
             <Skeleton width="100%" height="80px" />

@@ -64,6 +64,7 @@ export function LandingPage(): JSX.Element {
         )}
       </AppHeader>
       <main style={{ maxWidth: 'var(--container-content)', margin: '0 auto', padding: 'var(--space-4) var(--space-3)' }}>
+        <h1 style={{ marginTop: 0 }}>DIU CampusCare</h1>
         {currentSession?.roles.map((role) => {
           const home = ROLE_HOME[role];
           if (home === undefined) return null;

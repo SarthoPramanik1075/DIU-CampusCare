@@ -9,7 +9,7 @@ import { expect, test } from '@playwright/test';
  * than becoming one enormous file.
  */
 test.describe('P-01 · Landing', () => {
-  test('renders the heading with no console errors', async ({ page }) => {
+  test('renders the heading with no unexpected console errors', async ({ page }) => {
     const consoleErrors: string[] = [];
     page.on('console', (message) => {
       if (message.type() === 'error') consoleErrors.push(message.text());
@@ -19,7 +19,13 @@ test.describe('P-01 · Landing', () => {
     await page.goto('/');
     await expect(page.getByRole('heading', { name: 'DIU CampusCare' })).toBeVisible();
 
-    expect(consoleErrors).toEqual([]);
+    // `useSession()` calls `GET /auth/session` on every load to detect an
+    // anonymous visitor (API.md: "Authentication — Session," 401 for
+    // anyone without one) — the browser logs any non-2xx fetch to the
+    // console regardless of the app's own try/catch, so this one message
+    // is expected on every anonymous page load, not a defect (M1-B).
+    const unexpected = consoleErrors.filter((message) => !message.includes('401'));
+    expect(unexpected).toEqual([]);
   });
 
   test('has zero automated accessibility violations — FRONTEND §13.8', async ({ page }) => {
