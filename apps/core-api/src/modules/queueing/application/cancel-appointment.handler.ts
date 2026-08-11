@@ -7,6 +7,7 @@ import { err, ok, type Result } from '../../../kernel/shared/result.js';
 import { classifyCancellation } from '../domain/booking-validation.js';
 
 import type { AppointmentDetail, AppointmentRepository, CancelledAppointment } from './appointment-repository.js';
+import type { RecalculateSessionEstimatesHandler } from './recalculate-session-estimates.handler.js';
 
 export interface CancelAppointmentCommandInput {
   readonly appointmentId: string;
@@ -37,6 +38,7 @@ export class CancelAppointmentHandler {
     private readonly auditRecorder: AuditRecorder,
     private readonly clock: Clock,
     private readonly enqueueNotification: (input: EnqueueNotificationInput) => Promise<void>,
+    private readonly recalculate: RecalculateSessionEstimatesHandler,
   ) {}
 
   async execute(input: CancelAppointmentCommandInput): Promise<Result<CancelledAppointment, ValidationError | AuthorizationError | DomainRuleViolation | ConflictError>> {
@@ -111,6 +113,9 @@ export class CancelAppointmentHandler {
       actorId: input.actorId,
       correlationId: input.correlationId,
     });
+
+    // FR-APT-21's "a booking is cancelled" trigger.
+    await this.recalculate.execute(detail.clinicSessionId, now, 'booking_cancelled', input.actorId, input.correlationId);
 
     return ok(outcome.appointment);
   }

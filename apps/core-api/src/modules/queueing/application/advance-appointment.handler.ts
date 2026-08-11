@@ -7,6 +7,8 @@ import { isValidReason } from '../domain/booking-validation.js';
 
 import type { AppointmentDetail, AppointmentRepository } from './appointment-repository.js';
 import { appointmentNotFoundError } from './cancel-appointment.handler.js';
+import type { RecalculateSessionEstimatesHandler } from './recalculate-session-estimates.handler.js';
+import type { RecordConsultationMetricsHandler } from './record-consultation-metrics.handler.js';
 
 export interface AdvanceAppointmentCommandInput {
   readonly appointmentId: string;
@@ -51,6 +53,8 @@ export class AdvanceAppointmentHandler {
     private readonly repository: AppointmentRepository,
     private readonly auditRecorder: AuditRecorder,
     private readonly clock: Clock,
+    private readonly recalculate: RecalculateSessionEstimatesHandler,
+    private readonly recordConsultationMetrics: RecordConsultationMetricsHandler,
   ) {}
 
   async execute(input: AdvanceAppointmentCommandInput): Promise<Result<AdvanceResult, AuthorizationError | DomainRuleViolation | ConflictError>> {
@@ -104,6 +108,24 @@ export class AdvanceAppointmentHandler {
         actorId: input.actorId,
         correlationId: input.correlationId,
       });
+
+      if (input.toStatus === 'in_consultation') {
+        // FR-APT-25/NFR-ACC-01: predicted = what the patient was told just before this transition.
+        const predictedAt = detail.currentEstimate ?? detail.estimateAtBooking;
+        if (predictedAt !== null) {
+          await this.recordConsultationMetrics.execute({
+            appointmentId: input.appointmentId,
+            doctorId: detail.doctorId,
+            predictedAt,
+            actualStartedAt: now,
+            actorId: input.actorId,
+            correlationId: input.correlationId,
+          });
+        }
+      } else if (input.toStatus === 'completed') {
+        // FR-APT-21's "a consultation completes" trigger.
+        await this.recalculate.execute(detail.clinicSessionId, now, 'consultation_completed', input.actorId, input.correlationId);
+      }
     }
 
     return ok({

@@ -9,6 +9,7 @@ import { orderQueue } from '../domain/queue-ordering.js';
 
 import type { AppointmentDetail, AppointmentRepository, WaitingQueueEntry } from './appointment-repository.js';
 import { appointmentNotFoundError } from './cancel-appointment.handler.js';
+import type { RecalculateSessionEstimatesHandler } from './recalculate-session-estimates.handler.js';
 
 type NotifiableWaitingEntry = WaitingQueueEntry & { readonly studentId: string };
 
@@ -53,6 +54,7 @@ export class MarkEmergencyHandler {
     private readonly auditRecorder: AuditRecorder,
     private readonly clock: Clock,
     private readonly enqueueNotification: (input: EnqueueNotificationInput) => Promise<void>,
+    private readonly recalculate: RecalculateSessionEstimatesHandler,
   ) {}
 
   async execute(input: MarkEmergencyCommandInput): Promise<Result<MarkEmergencyResult, ValidationError | AuthorizationError | DomainRuleViolation | ConflictError>> {
@@ -109,6 +111,10 @@ export class MarkEmergencyHandler {
         now,
       );
     }
+
+    // FR-APT-21's "an emergency is inserted" trigger. `notifySlips: false` — the
+    // per-student `emergency_inserted` notice just above already covers this event.
+    await this.recalculate.execute(outcome.appointment.clinicSessionId, now, 'emergency_inserted', input.actorId, input.correlationId, false);
 
     const entries = orderQueue(await this.repository.listActiveQueueEntries(outcome.appointment.clinicSessionId));
     const index = entries.findIndex((entry) => entry.appointmentId === outcome.appointment.appointmentId);

@@ -10,6 +10,7 @@ import { computeSuspensionWindowStart, shouldSuspendForNoShows } from '../domain
 import type { AppointmentDetail, AppointmentRepository } from './appointment-repository.js';
 import type { BookingSuspensionRepository } from './booking-suspension-repository.js';
 import { appointmentNotFoundError } from './cancel-appointment.handler.js';
+import type { RecalculateSessionEstimatesHandler } from './recalculate-session-estimates.handler.js';
 
 export interface ReverseAppointmentStatusCommandInput {
   readonly appointmentId: string;
@@ -50,6 +51,7 @@ export class ReverseAppointmentStatusHandler {
     private readonly policyStore: PolicyStore,
     private readonly auditRecorder: AuditRecorder,
     private readonly clock: Clock,
+    private readonly recalculate: RecalculateSessionEstimatesHandler,
   ) {}
 
   async execute(
@@ -95,17 +97,26 @@ export class ReverseAppointmentStatusHandler {
 
     let suspensionRecalculated = false;
 
-    if (reversedFrom === 'no_show' && outcome.appointment.studentId !== null) {
+    if (reversedFrom === 'no_show') {
       const now = this.clock.now();
-      const active = await this.suspensionRepository.findActiveSuspensionDetail(outcome.appointment.studentId, now);
-      if (active !== null) {
-        suspensionRecalculated = true;
-        const windowDays = await this.policyStore.getRequiredInteger('queueing.noShow.suspensionWindowDays');
-        const thresholdCount = await this.policyStore.getRequiredInteger('queueing.noShow.suspensionThresholdCount');
-        const rollingNoShowCount = await this.suspensionRepository.countRecentNoShows(outcome.appointment.studentId, computeSuspensionWindowStart(now, windowDays));
 
-        if (!shouldSuspendForNoShows(rollingNoShowCount, thresholdCount)) {
-          await this.suspensionRepository.liftActiveSuspension(outcome.appointment.studentId, input.actorId, input.reason, now);
+      // FR-APT-21 doesn't name "reversal" among its five triggers, but reversing a
+      // no_show is the one reversal target that moves an entry back INTO the active
+      // queue (every other reversal target was already active) — the same queue-
+      // membership change a no-show itself causes, just undone.
+      await this.recalculate.execute(outcome.appointment.clinicSessionId, now, 'no_show_reversed', input.actorId, input.correlationId);
+
+      if (outcome.appointment.studentId !== null) {
+        const active = await this.suspensionRepository.findActiveSuspensionDetail(outcome.appointment.studentId, now);
+        if (active !== null) {
+          suspensionRecalculated = true;
+          const windowDays = await this.policyStore.getRequiredInteger('queueing.noShow.suspensionWindowDays');
+          const thresholdCount = await this.policyStore.getRequiredInteger('queueing.noShow.suspensionThresholdCount');
+          const rollingNoShowCount = await this.suspensionRepository.countRecentNoShows(outcome.appointment.studentId, computeSuspensionWindowStart(now, windowDays));
+
+          if (!shouldSuspendForNoShows(rollingNoShowCount, thresholdCount)) {
+            await this.suspensionRepository.liftActiveSuspension(outcome.appointment.studentId, input.actorId, input.reason, now);
+          }
         }
       }
     }

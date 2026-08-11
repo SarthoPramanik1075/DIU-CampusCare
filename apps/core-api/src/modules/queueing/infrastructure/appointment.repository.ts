@@ -14,10 +14,12 @@ import {
   type CreateBookingInput,
   type CreateBookingOutcome,
   type EmergencyOutcome,
+  type EstimateAccuracySampleInput,
   type MyAppointmentListItem,
   type NoShowOutcome,
   type QueueConsoleRow,
   type QueueEntrySummary,
+  type RecalculationTargetRow,
   type ReversalOutcome,
   type ServiceCalendarClosure,
   type SessionQueueContext,
@@ -430,6 +432,7 @@ export class KyselyAppointmentRepository implements AppointmentRepository {
         'scheduling.clinic_session.status as session_status',
         'scheduling.clinic_session.starts_at',
         'scheduling.clinic_session.ends_at',
+        'scheduling.clinic_session.slot_length_minutes',
       ])
       .where('scheduling.clinic_session.id', '=', sessionId)
       .executeTakeFirst();
@@ -443,6 +446,7 @@ export class KyselyAppointmentRepository implements AppointmentRepository {
       sessionStatus: row.session_status,
       startsAt: row.starts_at,
       endsAt: row.ends_at,
+      slotLengthMinutes: row.slot_length_minutes,
     };
   }
 
@@ -612,6 +616,75 @@ export class KyselyAppointmentRepository implements AppointmentRepository {
       .updateTable('queueing.appointment')
       .set({ last_slip_notified_at: now })
       .where('id', 'in', [...appointmentIds])
+      .execute();
+  }
+
+  async listRecalculationTargets(clinicSessionId: string): Promise<readonly RecalculationTargetRow[]> {
+    const rows = await this.db
+      .selectFrom('queueing.appointment')
+      .select(['id', 'serial_number', 'is_emergency', 'status', 'student_id', 'estimate_at_booking', 'last_slip_notified_at'])
+      .where('clinic_session_id', '=', clinicSessionId)
+      .where('status', 'in', ACTIVE_BOOKING_STATUSES)
+      .execute();
+
+    return rows.map((row) => ({
+      appointmentId: row.id,
+      serialNumber: row.serial_number,
+      isEmergency: row.is_emergency,
+      status: row.status,
+      studentId: row.student_id,
+      estimateAtBooking: row.estimate_at_booking,
+      lastSlipNotifiedAt: row.last_slip_notified_at,
+    }));
+  }
+
+  private static toDurationsMinutes(rows: readonly { readonly consultation_started_at: Date | null; readonly consultation_completed_at: Date | null }[]): readonly number[] {
+    return rows
+      .filter((row): row is { consultation_started_at: Date; consultation_completed_at: Date } => row.consultation_started_at !== null && row.consultation_completed_at !== null)
+      .map((row) => (row.consultation_completed_at.getTime() - row.consultation_started_at.getTime()) / 60_000);
+  }
+
+  async listCompletedConsultationDurationsForSession(clinicSessionId: string): Promise<readonly number[]> {
+    const rows = await this.db
+      .selectFrom('queueing.appointment')
+      .select(['consultation_started_at', 'consultation_completed_at'])
+      .where('clinic_session_id', '=', clinicSessionId)
+      .where('status', '=', 'completed')
+      .execute();
+    return KyselyAppointmentRepository.toDurationsMinutes(rows);
+  }
+
+  async listDoctorTrailingConsultationDurations(doctorId: string, since: Date): Promise<readonly number[]> {
+    const rows = await this.db
+      .selectFrom('queueing.appointment')
+      .innerJoin('scheduling.clinic_session', 'scheduling.clinic_session.id', 'queueing.appointment.clinic_session_id')
+      .select(['queueing.appointment.consultation_started_at', 'queueing.appointment.consultation_completed_at'])
+      .where('scheduling.clinic_session.doctor_id', '=', doctorId)
+      .where('queueing.appointment.status', '=', 'completed')
+      .where('queueing.appointment.consultation_completed_at', '>=', since)
+      .execute();
+    return KyselyAppointmentRepository.toDurationsMinutes(rows);
+  }
+
+  async updateCurrentEstimate(appointmentId: string, currentEstimate: Date, markSlipNotified: boolean, now: Date): Promise<void> {
+    await this.db
+      .updateTable('queueing.appointment')
+      .set({ current_estimate: currentEstimate, ...(markSlipNotified ? { last_slip_notified_at: now } : {}) })
+      .where('id', '=', appointmentId)
+      .execute();
+  }
+
+  async recordEstimateAccuracySample(input: EstimateAccuracySampleInput): Promise<void> {
+    await this.db
+      .insertInto('queueing.estimate_accuracy_sample')
+      .values({
+        id: uuidv7(),
+        appointment_id: input.appointmentId,
+        doctor_id: input.doctorId,
+        predicted_at: input.predictedAt,
+        actual_started_at: input.actualStartedAt,
+        deviation_minutes: input.deviationMinutes,
+      })
       .execute();
   }
 }

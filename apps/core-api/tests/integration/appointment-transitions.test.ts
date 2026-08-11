@@ -12,6 +12,8 @@ import {
   KyselyBookingSuspensionRepository,
   MarkEmergencyHandler,
   MarkNoShowHandler,
+  RecalculateSessionEstimatesHandler,
+  RecordConsultationMetricsHandler,
   ReverseAppointmentStatusHandler,
   seedQueueingPolicies,
   type AppointmentRepository,
@@ -100,11 +102,13 @@ describe('Queue transitions (M3-F) — integration', () => {
       sentNotifications.push({ recipientId: input.recipientId, templateKey: input.templateKey });
       return Promise.resolve();
     };
+    const recalculate = new RecalculateSessionEstimatesHandler(repository, policyStore, auditRecorder, notify);
+    const recordConsultationMetrics = new RecordConsultationMetricsHandler(repository, auditRecorder);
     checkIn = new CheckInAppointmentHandler(repository, auditRecorder, clock);
-    advance = new AdvanceAppointmentHandler(repository, auditRecorder, clock);
-    markNoShow = new MarkNoShowHandler(repository, suspensionRepository, policyStore, auditRecorder, clock, notify);
-    reverse = new ReverseAppointmentStatusHandler(repository, suspensionRepository, policyStore, auditRecorder, clock);
-    markEmergency = new MarkEmergencyHandler(repository, policyStore, auditRecorder, clock, notify);
+    advance = new AdvanceAppointmentHandler(repository, auditRecorder, clock, recalculate, recordConsultationMetrics);
+    markNoShow = new MarkNoShowHandler(repository, suspensionRepository, policyStore, auditRecorder, clock, notify, recalculate);
+    reverse = new ReverseAppointmentStatusHandler(repository, suspensionRepository, policyStore, auditRecorder, clock, recalculate);
+    markEmergency = new MarkEmergencyHandler(repository, policyStore, auditRecorder, clock, notify, recalculate);
   });
 
   async function bookOnSessionA(slotIndex: number): Promise<{ readonly appointmentId: string; readonly studentId: string; readonly version: number }> {
@@ -496,8 +500,9 @@ describe('Queue transitions (M3-F) — integration', () => {
       createdBy,
     });
     if (emergencySession.outcome !== 'created') throw new Error('setup failed');
-    await db.updateTable('scheduling.clinic_session').set({ status: 'started', actually_started_at: clock.now() }).where('id', '=', emergencySession.session.sessionId).execute();
-    const emergencySlotRows = await db.selectFrom('scheduling.session_slot').select('id').where('clinic_session_id', '=', emergencySession.session.sessionId).orderBy('slot_index').execute();
+    const emergencySessionId = emergencySession.session.sessionId;
+    await db.updateTable('scheduling.clinic_session').set({ status: 'started', actually_started_at: clock.now() }).where('id', '=', emergencySessionId).execute();
+    const emergencySlotRows = await db.selectFrom('scheduling.session_slot').select('id').where('clinic_session_id', '=', emergencySessionId).orderBy('slot_index').execute();
     const emergencySlots = emergencySlotRows.map((row) => row.id);
 
     async function bookOnEmergencySession(slotIndex: number): Promise<{ readonly appointmentId: string; readonly studentId: string; readonly version: number }> {
@@ -512,7 +517,7 @@ describe('Queue transitions (M3-F) — integration', () => {
       const outcome = await repository.createBooking({
         slot: {
           slotId,
-          sessionId: emergencySession.session.sessionId,
+          sessionId: emergencySessionId,
           doctorId,
           doctorName: 'Dr. Transitions',
           locationId,

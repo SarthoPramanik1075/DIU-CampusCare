@@ -13,6 +13,7 @@ import {
   KyselyAppointmentRepository,
   ListMyAppointmentsQuery,
   orderQueue,
+  RecalculateSessionEstimatesHandler,
   seedQueueingPolicies,
   type AppointmentRepository,
 } from '../../src/modules/queueing/index.js';
@@ -90,10 +91,12 @@ describe('Appointment lifecycle (M3-C) — integration', () => {
 
   beforeEach(() => {
     sentNotifications = [];
-    cancelHandler = new CancelAppointmentHandler(repository, policyStore, auditRecorder, clock, (input) => {
+    const notify = (input: { recipientId: string; templateKey: string }): Promise<void> => {
       sentNotifications.push({ recipientId: input.recipientId, templateKey: input.templateKey });
       return Promise.resolve();
-    });
+    };
+    const recalculate = new RecalculateSessionEstimatesHandler(repository, policyStore, auditRecorder, notify);
+    cancelHandler = new CancelAppointmentHandler(repository, policyStore, auditRecorder, clock, notify, recalculate);
     getAppointmentDetail = new GetAppointmentDetailQuery(repository);
     listMyAppointments = new ListMyAppointmentsQuery(repository, clock);
     getQueuePosition = new GetQueuePositionQuery(repository, policyStore, clock);

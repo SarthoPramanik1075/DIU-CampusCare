@@ -9,6 +9,7 @@ import { computeSuspensionUntil, computeSuspensionWindowStart, shouldSuspendForN
 import type { AppointmentDetail, AppointmentRepository } from './appointment-repository.js';
 import type { BookingSuspensionRepository } from './booking-suspension-repository.js';
 import { appointmentNotFoundError } from './cancel-appointment.handler.js';
+import type { RecalculateSessionEstimatesHandler } from './recalculate-session-estimates.handler.js';
 
 export interface MarkNoShowCommandInput {
   readonly appointmentId: string;
@@ -54,6 +55,7 @@ export class MarkNoShowHandler {
     private readonly auditRecorder: AuditRecorder,
     private readonly clock: Clock,
     private readonly enqueueNotification: (input: EnqueueNotificationInput) => Promise<void>,
+    private readonly recalculate: RecalculateSessionEstimatesHandler,
   ) {}
 
   async execute(input: MarkNoShowCommandInput): Promise<Result<MarkNoShowResult, AuthorizationError | DomainRuleViolation | ConflictError>> {
@@ -90,6 +92,9 @@ export class MarkNoShowHandler {
       actorId: input.actorId,
       correlationId: input.correlationId,
     });
+
+    // FR-APT-21's "a patient is marked No-show" trigger.
+    await this.recalculate.execute(outcome.appointment.clinicSessionId, now, 'no_show', input.actorId, input.correlationId);
 
     let rollingNoShowCount = 0;
     let suspensionApplied: SuspensionApplied | null = null;

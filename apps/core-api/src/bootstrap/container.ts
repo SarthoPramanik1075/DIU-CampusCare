@@ -75,6 +75,8 @@ import {
   ListMyAppointmentsQuery,
   MarkEmergencyHandler,
   MarkNoShowHandler,
+  RecalculateSessionEstimatesHandler,
+  RecordConsultationMetricsHandler,
   ReverseAppointmentStatusHandler,
   type AppointmentRepository,
   type BookingSuspensionRepository,
@@ -202,6 +204,8 @@ export interface Container {
   readonly markNoShow: MarkNoShowHandler;
   readonly reverseAppointmentStatus: ReverseAppointmentStatusHandler;
   readonly markEmergency: MarkEmergencyHandler;
+  readonly recalculateSessionEstimates: RecalculateSessionEstimatesHandler;
+  readonly recordConsultationMetrics: RecordConsultationMetricsHandler;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -338,18 +342,36 @@ export function buildContainer(config: AppConfig): Container {
   const bookAppointment = new BookAppointmentHandler(appointmentRepository, policyStore, auditRecorder, clock);
   const listMyAppointments = new ListMyAppointmentsQuery(appointmentRepository, clock);
   const getAppointmentDetail = new GetAppointmentDetailQuery(appointmentRepository);
-  const cancelAppointment = new CancelAppointmentHandler(appointmentRepository, policyStore, auditRecorder, clock, (input) => enqueueNotification(db, input));
   const getQueuePosition = new GetQueuePositionQuery(appointmentRepository, policyStore, clock);
   const bookingSuspensionRepository: BookingSuspensionRepository = new KyselyBookingSuspensionRepository(db);
   const getBookingSuspension = new GetBookingSuspensionQuery(bookingSuspensionRepository, clock);
   const getQueueConsole = new GetQueueConsoleQuery(listClinicSessions, appointmentRepository, auditRecorder);
   const getSessionQueue = new GetSessionQueueQuery(appointmentRepository, auditRecorder);
 
+  const recalculateSessionEstimates = new RecalculateSessionEstimatesHandler(appointmentRepository, policyStore, auditRecorder, (input) => enqueueNotification(db, input));
+  const recordConsultationMetrics = new RecordConsultationMetricsHandler(appointmentRepository, auditRecorder);
+
+  const cancelAppointment = new CancelAppointmentHandler(
+    appointmentRepository,
+    policyStore,
+    auditRecorder,
+    clock,
+    (input) => enqueueNotification(db, input),
+    recalculateSessionEstimates,
+  );
   const checkInAppointment = new CheckInAppointmentHandler(appointmentRepository, auditRecorder, clock);
-  const advanceAppointment = new AdvanceAppointmentHandler(appointmentRepository, auditRecorder, clock);
-  const markNoShow = new MarkNoShowHandler(appointmentRepository, bookingSuspensionRepository, policyStore, auditRecorder, clock, (input) => enqueueNotification(db, input));
-  const reverseAppointmentStatus = new ReverseAppointmentStatusHandler(appointmentRepository, bookingSuspensionRepository, policyStore, auditRecorder, clock);
-  const markEmergency = new MarkEmergencyHandler(appointmentRepository, policyStore, auditRecorder, clock, (input) => enqueueNotification(db, input));
+  const advanceAppointment = new AdvanceAppointmentHandler(appointmentRepository, auditRecorder, clock, recalculateSessionEstimates, recordConsultationMetrics);
+  const markNoShow = new MarkNoShowHandler(
+    appointmentRepository,
+    bookingSuspensionRepository,
+    policyStore,
+    auditRecorder,
+    clock,
+    (input) => enqueueNotification(db, input),
+    recalculateSessionEstimates,
+  );
+  const reverseAppointmentStatus = new ReverseAppointmentStatusHandler(appointmentRepository, bookingSuspensionRepository, policyStore, auditRecorder, clock, recalculateSessionEstimates);
+  const markEmergency = new MarkEmergencyHandler(appointmentRepository, policyStore, auditRecorder, clock, (input) => enqueueNotification(db, input), recalculateSessionEstimates);
 
   return {
     config,
@@ -431,6 +453,8 @@ export function buildContainer(config: AppConfig): Container {
     markNoShow,
     reverseAppointmentStatus,
     markEmergency,
+    recalculateSessionEstimates,
+    recordConsultationMetrics,
   };
 }
 

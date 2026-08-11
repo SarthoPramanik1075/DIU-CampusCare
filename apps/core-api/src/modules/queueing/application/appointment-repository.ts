@@ -28,6 +28,8 @@ export interface SessionQueueContext {
   readonly sessionStatus: string;
   readonly startsAt: Date;
   readonly endsAt: Date;
+  /** FR-APT-22's floor and EC-15's anomaly ceiling are both expressed relative to this — reused here rather than re-fetched by `RecalculateSessionEstimatesHandler`. */
+  readonly slotLengthMinutes: number;
 }
 
 export interface BookedAppointment {
@@ -185,6 +187,25 @@ export type ReversalOutcome =
   | { readonly outcome: 'session_already_ended' }
   | { readonly outcome: 'invalid_reversal_target' };
 
+/** `RecalculateSessionEstimatesHandler`'s own read (M3-G, FR-APT-21) — every entry still occupying a place in the live queue, with just enough to order it (`orderQueue`) and decide whether it has slipped (`domain/estimation.ts`'s `shouldNotifySlip`). */
+export interface RecalculationTargetRow {
+  readonly appointmentId: string;
+  readonly serialNumber: number;
+  readonly isEmergency: boolean;
+  readonly status: AppointmentStatus;
+  readonly studentId: string | null;
+  readonly estimateAtBooking: Date | null;
+  readonly lastSlipNotifiedAt: Date | null;
+}
+
+export interface EstimateAccuracySampleInput {
+  readonly appointmentId: string;
+  readonly doctorId: string;
+  readonly predictedAt: Date;
+  readonly actualStartedAt: Date;
+  readonly deviationMinutes: number;
+}
+
 export interface AppointmentRepository {
   findSlotBookingContext(sessionSlotId: string): Promise<SlotBookingContext | null>;
   listAvailableSlots(sessionId: string): Promise<readonly AvailableSlotItem[]>;
@@ -210,4 +231,9 @@ export interface AppointmentRepository {
   reverseStatus(appointmentId: string, toStatus: AppointmentStatus, expectedVersion: number): Promise<ReversalOutcome>;
   markEmergency(appointmentId: string, expectedVersion: number, reason: string): Promise<EmergencyOutcome>;
   updateLastSlipNotifiedAt(appointmentIds: readonly string[], now: Date): Promise<void>;
+  listRecalculationTargets(clinicSessionId: string): Promise<readonly RecalculationTargetRow[]>;
+  listCompletedConsultationDurationsForSession(clinicSessionId: string): Promise<readonly number[]>;
+  listDoctorTrailingConsultationDurations(doctorId: string, since: Date): Promise<readonly number[]>;
+  updateCurrentEstimate(appointmentId: string, currentEstimate: Date, markSlipNotified: boolean, now: Date): Promise<void>;
+  recordEstimateAccuracySample(input: EstimateAccuracySampleInput): Promise<void>;
 }

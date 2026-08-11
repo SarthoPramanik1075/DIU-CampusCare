@@ -434,6 +434,8 @@ async function buildTestApp(): Promise<{ app: FastifyInstance; accountAdminRepos
     markNoShow: undefined as unknown as Container['markNoShow'],
     reverseAppointmentStatus: undefined as unknown as Container['reverseAppointmentStatus'],
     markEmergency: undefined as unknown as Container['markEmergency'],
+    recalculateSessionEstimates: undefined as unknown as Container['recalculateSessionEstimates'],
+    recordConsultationMetrics: undefined as unknown as Container['recordConsultationMetrics'],
   };
 
   return { app: await buildApp(container), accountAdminRepository };
