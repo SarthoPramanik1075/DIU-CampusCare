@@ -60,6 +60,12 @@ import {
   type SsoClient,
 } from '../modules/iam/index.js';
 import {
+  BookAppointmentHandler,
+  GetAvailabilityQuery,
+  KyselyAppointmentRepository,
+  type AppointmentRepository,
+} from '../modules/queueing/index.js';
+import {
   CancelSessionHandler,
   CompleteSessionHandler,
   ConfirmUnavailabilityHandler,
@@ -166,6 +172,9 @@ export interface Container {
   readonly createServiceCalendarEntries: CreateServiceCalendarEntriesHandler;
   readonly updateServiceCalendarEntry: UpdateServiceCalendarEntryHandler;
   readonly deleteServiceCalendarEntry: DeleteServiceCalendarEntryHandler;
+  readonly appointmentRepository: AppointmentRepository;
+  readonly getAvailability: GetAvailabilityQuery;
+  readonly bookAppointment: BookAppointmentHandler;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -297,6 +306,10 @@ export function buildContainer(config: AppConfig): Container {
   const updateServiceCalendarEntry = new UpdateServiceCalendarEntryHandler(serviceCalendarRepository, auditRecorder);
   const deleteServiceCalendarEntry = new DeleteServiceCalendarEntryHandler(serviceCalendarRepository, auditRecorder, clock);
 
+  const appointmentRepository: AppointmentRepository = new KyselyAppointmentRepository(db);
+  const getAvailability = new GetAvailabilityQuery(listClinicSessions, appointmentRepository, clock);
+  const bookAppointment = new BookAppointmentHandler(appointmentRepository, policyStore, auditRecorder, clock);
+
   return {
     config,
     logger,
@@ -361,6 +374,9 @@ export function buildContainer(config: AppConfig): Container {
     createServiceCalendarEntries,
     updateServiceCalendarEntry,
     deleteServiceCalendarEntry,
+    appointmentRepository,
+    getAvailability,
+    bookAppointment,
   };
 }
 

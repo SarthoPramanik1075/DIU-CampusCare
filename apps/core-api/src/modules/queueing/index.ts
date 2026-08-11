@@ -37,3 +37,19 @@ export {
   shouldNotifySlip,
 } from './domain/estimation.js';
 export { formatAppointmentRef } from './domain/appointment-ref.js';
+
+export {
+  ACTIVE_BOOKING_STATUSES,
+  type ActiveSuspension,
+  type AppointmentRepository,
+  type AvailableSlotItem,
+  type BookedAppointment,
+  type CreateBookingInput,
+  type CreateBookingOutcome,
+  type ServiceCalendarClosure,
+  type SlotBookingContext,
+} from './application/appointment-repository.js';
+export { BookAppointmentHandler, type BookAppointmentCommandInput } from './application/book-appointment.handler.js';
+export { GetAvailabilityQuery, type AvailabilitySessionItem } from './application/queries/get-availability.query.js';
+export { KyselyAppointmentRepository } from './infrastructure/appointment.repository.js';
+export { registerAppointmentRoutes, type AppointmentRouteDeps } from './interface/http/appointment.routes.js';

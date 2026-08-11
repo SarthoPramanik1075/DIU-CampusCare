@@ -263,6 +263,9 @@ async function buildTestApp(): Promise<{ app: FastifyInstance }> {
     createServiceCalendarEntries,
     updateServiceCalendarEntry,
     deleteServiceCalendarEntry,
+    appointmentRepository: undefined as unknown as Container['appointmentRepository'],
+    getAvailability: undefined as unknown as Container['getAvailability'],
+    bookAppointment: undefined as unknown as Container['bookAppointment'],
   };
 
   return { app: await buildApp(container) };
