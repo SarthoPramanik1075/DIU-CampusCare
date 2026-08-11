@@ -41,15 +41,25 @@ export { formatAppointmentRef } from './domain/appointment-ref.js';
 export {
   ACTIVE_BOOKING_STATUSES,
   type ActiveSuspension,
+  type AppointmentDetail,
+  type AppointmentListScope,
   type AppointmentRepository,
   type AvailableSlotItem,
   type BookedAppointment,
+  type CancelAppointmentOutcome,
+  type CancelledAppointment,
   type CreateBookingInput,
   type CreateBookingOutcome,
+  type MyAppointmentListItem,
+  type QueueEntrySummary,
   type ServiceCalendarClosure,
   type SlotBookingContext,
 } from './application/appointment-repository.js';
 export { BookAppointmentHandler, type BookAppointmentCommandInput } from './application/book-appointment.handler.js';
+export { appointmentNotFoundError, CancelAppointmentHandler, type CancelAppointmentCommandInput } from './application/cancel-appointment.handler.js';
 export { GetAvailabilityQuery, type AvailabilitySessionItem } from './application/queries/get-availability.query.js';
+export { GetAppointmentDetailQuery, type AppointmentViewer, type AppointmentViewerRole } from './application/queries/get-appointment-detail.query.js';
+export { GetQueuePositionQuery, type QueuePositionResult } from './application/queries/get-queue-position.query.js';
+export { ListMyAppointmentsQuery } from './application/queries/list-my-appointments.query.js';
 export { KyselyAppointmentRepository } from './infrastructure/appointment.repository.js';
 export { registerAppointmentRoutes, type AppointmentRouteDeps } from './interface/http/appointment.routes.js';

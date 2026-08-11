@@ -168,6 +168,10 @@ export async function buildApp(container: Container): Promise<FastifyInstance> {
     getSession: container.getSession,
     getAvailability: container.getAvailability,
     bookAppointment: container.bookAppointment,
+    listMyAppointments: container.listMyAppointments,
+    getAppointmentDetail: container.getAppointmentDetail,
+    cancelAppointment: container.cancelAppointment,
+    getQueuePosition: container.getQueuePosition,
   });
 
   return app;

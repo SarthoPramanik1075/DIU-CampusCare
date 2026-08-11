@@ -6,15 +6,20 @@ import type { Database } from '../../../infrastructure/database/client.js';
 import {
   ACTIVE_BOOKING_STATUSES,
   type ActiveSuspension,
+  type AppointmentDetail,
+  type AppointmentListScope,
   type AppointmentRepository,
   type AvailableSlotItem,
+  type CancelAppointmentOutcome,
   type CreateBookingInput,
   type CreateBookingOutcome,
+  type MyAppointmentListItem,
+  type QueueEntrySummary,
   type ServiceCalendarClosure,
   type SlotBookingContext,
 } from '../application/appointment-repository.js';
 import { formatAppointmentRef } from '../domain/appointment-ref.js';
-
+import { canCancel } from '../domain/appointment-status.js';
 
 /** Postgres `unique_violation` — the race this insert can hit is `uq_appointment_slot_active` (EC-01). */
 const PG_UNIQUE_VIOLATION = '23505';
@@ -191,5 +196,174 @@ export class KyselyAppointmentRepository implements AppointmentRepository {
       if (isUniqueViolation(error)) return { outcome: 'slot_taken' };
       throw error;
     }
+  }
+
+  async findAppointmentDetail(appointmentId: string): Promise<AppointmentDetail | null> {
+    const row = await this.db
+      .selectFrom('queueing.appointment')
+      .innerJoin('scheduling.clinic_session', 'scheduling.clinic_session.id', 'queueing.appointment.clinic_session_id')
+      .innerJoin('scheduling.doctor', 'scheduling.doctor.id', 'scheduling.clinic_session.doctor_id')
+      .leftJoin('identity.student_profile', 'identity.student_profile.user_account_id', 'queueing.appointment.student_id')
+      .leftJoin('identity.user_account', 'identity.user_account.id', 'queueing.appointment.student_id')
+      .select([
+        'queueing.appointment.id as appointment_id',
+        'queueing.appointment.appointment_ref',
+        'queueing.appointment.clinic_session_id',
+        'scheduling.doctor.id as doctor_id',
+        'scheduling.doctor.full_name as doctor_name',
+        'scheduling.doctor.user_account_id as doctor_user_account_id',
+        'scheduling.clinic_session.session_date',
+        'scheduling.clinic_session.status as session_status',
+        'queueing.appointment.student_id',
+        'identity.student_profile.student_ref',
+        'identity.user_account.full_name as student_name',
+        'queueing.appointment.unregistered_name',
+        'queueing.appointment.serial_number',
+        'queueing.appointment.origin',
+        'queueing.appointment.status',
+        'queueing.appointment.is_emergency',
+        'queueing.appointment.visit_reason_note',
+        'queueing.appointment.estimate_at_booking',
+        'queueing.appointment.current_estimate',
+        'queueing.appointment.payment_status',
+        'queueing.appointment.checked_in_at',
+        'queueing.appointment.consultation_started_at',
+        'queueing.appointment.consultation_completed_at',
+        'queueing.appointment.cancelled_at',
+        'queueing.appointment.cancellation_reason',
+        'queueing.appointment.version',
+      ])
+      .where('queueing.appointment.id', '=', appointmentId)
+      .executeTakeFirst();
+
+    if (row === undefined) return null;
+    return {
+      appointmentId: row.appointment_id,
+      appointmentRef: row.appointment_ref,
+      clinicSessionId: row.clinic_session_id,
+      doctorId: row.doctor_id,
+      doctorName: row.doctor_name,
+      doctorUserAccountId: row.doctor_user_account_id,
+      sessionDate: row.session_date,
+      sessionStatus: row.session_status,
+      studentId: row.student_id,
+      studentRef: row.student_ref,
+      studentName: row.student_name,
+      unregisteredName: row.unregistered_name,
+      serialNumber: row.serial_number,
+      origin: row.origin,
+      status: row.status,
+      isEmergency: row.is_emergency,
+      visitReasonNote: row.visit_reason_note,
+      estimateAtBooking: row.estimate_at_booking,
+      currentEstimate: row.current_estimate,
+      paymentStatus: row.payment_status,
+      checkedInAt: row.checked_in_at,
+      consultationStartedAt: row.consultation_started_at,
+      consultationCompletedAt: row.consultation_completed_at,
+      cancelledAt: row.cancelled_at,
+      cancellationReason: row.cancellation_reason,
+      version: row.version,
+    };
+  }
+
+  async findDoctorIdForAppointment(appointmentId: string): Promise<string | null> {
+    const row = await this.db
+      .selectFrom('queueing.appointment')
+      .innerJoin('scheduling.clinic_session', 'scheduling.clinic_session.id', 'queueing.appointment.clinic_session_id')
+      .select('scheduling.clinic_session.doctor_id')
+      .where('queueing.appointment.id', '=', appointmentId)
+      .executeTakeFirst();
+    return row?.doctor_id ?? null;
+  }
+
+  async listMyAppointments(studentId: string, scope: AppointmentListScope, todayIsoDate: string, limit: number): Promise<readonly MyAppointmentListItem[]> {
+    let query = this.db
+      .selectFrom('queueing.appointment')
+      .innerJoin('scheduling.clinic_session', 'scheduling.clinic_session.id', 'queueing.appointment.clinic_session_id')
+      .innerJoin('scheduling.doctor', 'scheduling.doctor.id', 'scheduling.clinic_session.doctor_id')
+      .select([
+        'queueing.appointment.id as appointment_id',
+        'queueing.appointment.appointment_ref',
+        'scheduling.doctor.id as doctor_id',
+        'scheduling.doctor.full_name as doctor_name',
+        'scheduling.clinic_session.session_date',
+        'queueing.appointment.serial_number',
+        'queueing.appointment.status',
+        'queueing.appointment.current_estimate',
+        'queueing.appointment.version',
+      ])
+      .where('queueing.appointment.student_id', '=', studentId)
+      .where('queueing.appointment.origin', '=', 'booked');
+
+    if (scope === 'upcoming') {
+      query = query.where('scheduling.clinic_session.session_date', '>=', todayIsoDate).where('queueing.appointment.status', 'in', ACTIVE_BOOKING_STATUSES);
+    } else if (scope === 'past') {
+      query = query.where((eb) => eb.or([eb('scheduling.clinic_session.session_date', '<', todayIsoDate), eb('queueing.appointment.status', 'not in', ACTIVE_BOOKING_STATUSES)]));
+    }
+
+    const rows = await query
+      .orderBy('scheduling.clinic_session.session_date', scope === 'past' ? 'desc' : 'asc')
+      .orderBy('queueing.appointment.serial_number', 'asc')
+      .limit(limit)
+      .execute();
+
+    return rows.map((row) => ({
+      appointmentId: row.appointment_id,
+      appointmentRef: row.appointment_ref,
+      doctorId: row.doctor_id,
+      doctorName: row.doctor_name,
+      sessionDate: row.session_date,
+      serialNumber: row.serial_number,
+      status: row.status,
+      currentEstimate: row.current_estimate,
+      version: row.version,
+    }));
+  }
+
+  async cancelAppointment(
+    appointmentId: string,
+    expectedVersion: number,
+    classification: 'cancelled' | 'late_cancellation',
+    reason: string | null,
+    now: Date,
+  ): Promise<CancelAppointmentOutcome> {
+    const statusRow = await this.db.selectFrom('queueing.appointment').select('status').where('id', '=', appointmentId).executeTakeFirst();
+    if (statusRow === undefined) return { outcome: 'not_found' };
+    if (!canCancel(statusRow.status)) return { outcome: 'invalid_transition' };
+
+    const row = await this.db
+      .updateTable('queueing.appointment')
+      .set({ status: classification, cancelled_at: now, cancellation_reason: reason })
+      .where('id', '=', appointmentId)
+      .where('version', '=', expectedVersion)
+      .returning(['id', 'version'])
+      .executeTakeFirst();
+
+    if (row === undefined) {
+      const current = await this.findAppointmentDetail(appointmentId);
+      if (current === null) return { outcome: 'not_found' };
+      return { outcome: 'stale', current };
+    }
+
+    return {
+      outcome: 'cancelled',
+      appointment: {
+        appointmentId: row.id,
+        status: classification,
+        cancelledAt: now,
+        version: row.version,
+      },
+    };
+  }
+
+  async listActiveQueueEntries(clinicSessionId: string): Promise<readonly QueueEntrySummary[]> {
+    const rows = await this.db
+      .selectFrom('queueing.appointment')
+      .select(['id', 'serial_number', 'is_emergency', 'status'])
+      .where('clinic_session_id', '=', clinicSessionId)
+      .where('status', 'in', ACTIVE_BOOKING_STATUSES)
+      .execute();
+    return rows.map((row) => ({ appointmentId: row.id, serialNumber: row.serial_number, isEmergency: row.is_emergency, status: row.status }));
   }
 }

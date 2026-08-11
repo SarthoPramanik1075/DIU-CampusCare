@@ -61,8 +61,12 @@ import {
 } from '../modules/iam/index.js';
 import {
   BookAppointmentHandler,
+  CancelAppointmentHandler,
+  GetAppointmentDetailQuery,
   GetAvailabilityQuery,
+  GetQueuePositionQuery,
   KyselyAppointmentRepository,
+  ListMyAppointmentsQuery,
   type AppointmentRepository,
 } from '../modules/queueing/index.js';
 import {
@@ -175,6 +179,10 @@ export interface Container {
   readonly appointmentRepository: AppointmentRepository;
   readonly getAvailability: GetAvailabilityQuery;
   readonly bookAppointment: BookAppointmentHandler;
+  readonly listMyAppointments: ListMyAppointmentsQuery;
+  readonly getAppointmentDetail: GetAppointmentDetailQuery;
+  readonly cancelAppointment: CancelAppointmentHandler;
+  readonly getQueuePosition: GetQueuePositionQuery;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -309,6 +317,10 @@ export function buildContainer(config: AppConfig): Container {
   const appointmentRepository: AppointmentRepository = new KyselyAppointmentRepository(db);
   const getAvailability = new GetAvailabilityQuery(listClinicSessions, appointmentRepository, clock);
   const bookAppointment = new BookAppointmentHandler(appointmentRepository, policyStore, auditRecorder, clock);
+  const listMyAppointments = new ListMyAppointmentsQuery(appointmentRepository, clock);
+  const getAppointmentDetail = new GetAppointmentDetailQuery(appointmentRepository);
+  const cancelAppointment = new CancelAppointmentHandler(appointmentRepository, policyStore, auditRecorder, clock, (input) => enqueueNotification(db, input));
+  const getQueuePosition = new GetQueuePositionQuery(appointmentRepository, policyStore, clock);
 
   return {
     config,
@@ -377,6 +389,10 @@ export function buildContainer(config: AppConfig): Container {
     appointmentRepository,
     getAvailability,
     bookAppointment,
+    listMyAppointments,
+    getAppointmentDetail,
+    cancelAppointment,
+    getQueuePosition,
   };
 }
 

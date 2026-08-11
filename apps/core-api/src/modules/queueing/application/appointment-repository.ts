@@ -54,6 +54,72 @@ export interface ActiveSuspension {
 /** BR-11's "active" set: still occupying a place in a queue, one way or another — matches `uq_appointment_student_session_active`'s own predicate. */
 export const ACTIVE_BOOKING_STATUSES = ['booked', 'checked_in', 'waiting', 'in_consultation'] as const;
 
+/** Everything a caller could legitimately need about one appointment — `GET /appointments/{id}` (F-03/API §4.1) shapes its response *down* from this per role, rather than each role having its own query. */
+export interface AppointmentDetail {
+  readonly appointmentId: string;
+  readonly appointmentRef: string;
+  readonly clinicSessionId: string;
+  readonly doctorId: string;
+  readonly doctorName: string;
+  /** The `DOC` ownership check (PRM-07) — `null` when the doctor has no linked login account (CON-02). */
+  readonly doctorUserAccountId: string | null;
+  readonly sessionDate: string;
+  readonly sessionStatus: string;
+  readonly studentId: string | null;
+  readonly studentRef: string | null;
+  readonly studentName: string | null;
+  readonly unregisteredName: string | null;
+  readonly serialNumber: number;
+  readonly origin: 'booked' | 'walk_in';
+  readonly status: AppointmentStatus;
+  readonly isEmergency: boolean;
+  readonly visitReasonNote: string | null;
+  readonly estimateAtBooking: Date | null;
+  readonly currentEstimate: Date | null;
+  readonly paymentStatus: PaymentState;
+  readonly checkedInAt: Date | null;
+  readonly consultationStartedAt: Date | null;
+  readonly consultationCompletedAt: Date | null;
+  readonly cancelledAt: Date | null;
+  readonly cancellationReason: string | null;
+  readonly version: number;
+}
+
+export interface MyAppointmentListItem {
+  readonly appointmentId: string;
+  readonly appointmentRef: string;
+  readonly doctorId: string;
+  readonly doctorName: string;
+  readonly sessionDate: string;
+  readonly serialNumber: number;
+  readonly status: AppointmentStatus;
+  readonly currentEstimate: Date | null;
+  readonly version: number;
+}
+
+export type AppointmentListScope = 'upcoming' | 'past' | 'all';
+
+export interface CancelledAppointment {
+  readonly appointmentId: string;
+  readonly status: 'cancelled' | 'late_cancellation';
+  readonly cancelledAt: Date;
+  readonly version: number;
+}
+
+export type CancelAppointmentOutcome =
+  | { readonly outcome: 'cancelled'; readonly appointment: CancelledAppointment }
+  | { readonly outcome: 'not_found' }
+  | { readonly outcome: 'invalid_transition' }
+  | { readonly outcome: 'stale'; readonly current: AppointmentDetail };
+
+/** One row per still-active entry in a session's queue, ordered per `domain/queue-ordering.ts` — the shared basis for `patientsAhead` (S-07) and `nowServingSerial` (queue-position, console). */
+export interface QueueEntrySummary {
+  readonly appointmentId: string;
+  readonly serialNumber: number;
+  readonly isEmergency: boolean;
+  readonly status: AppointmentStatus;
+}
+
 export interface AppointmentRepository {
   findSlotBookingContext(sessionSlotId: string): Promise<SlotBookingContext | null>;
   listAvailableSlots(sessionId: string): Promise<readonly AvailableSlotItem[]>;
@@ -64,4 +130,10 @@ export interface AppointmentRepository {
   listActiveBookingKeysForStudent(studentId: string): Promise<ReadonlySet<string>>;
   findActiveSuspension(studentId: string, now: Date): Promise<ActiveSuspension | null>;
   createBooking(input: CreateBookingInput): Promise<CreateBookingOutcome>;
+  findAppointmentDetail(appointmentId: string): Promise<AppointmentDetail | null>;
+  /** DOC's own-session anti-enumeration check (PRM-07) — a cheap existence probe the route/query layer uses before deciding 404 vs. real data. */
+  findDoctorIdForAppointment(appointmentId: string): Promise<string | null>;
+  listMyAppointments(studentId: string, scope: AppointmentListScope, todayIsoDate: string, limit: number): Promise<readonly MyAppointmentListItem[]>;
+  cancelAppointment(appointmentId: string, expectedVersion: number, classification: 'cancelled' | 'late_cancellation', reason: string | null, now: Date): Promise<CancelAppointmentOutcome>;
+  listActiveQueueEntries(clinicSessionId: string): Promise<readonly QueueEntrySummary[]>;
 }

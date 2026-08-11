@@ -123,6 +123,10 @@ function buildTestApp(repository: AnnouncementRepository, now: Date): Promise<Fa
     appointmentRepository: undefined as unknown as Container['appointmentRepository'],
     getAvailability: undefined as unknown as Container['getAvailability'],
     bookAppointment: undefined as unknown as Container['bookAppointment'],
+    listMyAppointments: undefined as unknown as Container['listMyAppointments'],
+    getAppointmentDetail: undefined as unknown as Container['getAppointmentDetail'],
+    cancelAppointment: undefined as unknown as Container['cancelAppointment'],
+    getQueuePosition: undefined as unknown as Container['getQueuePosition'],
   };
 
   return buildApp(container);
