@@ -37,6 +37,7 @@ export {
   shouldNotifySlip,
 } from './domain/estimation.js';
 export { formatAppointmentRef } from './domain/appointment-ref.js';
+export { computeSuspensionUntil, computeSuspensionWindowStart, shouldSuspendForNoShows } from './domain/no-show-suspension.js';
 
 export {
   ACTIVE_BOOKING_STATUSES,
@@ -61,5 +62,8 @@ export { GetAvailabilityQuery, type AvailabilitySessionItem } from './applicatio
 export { GetAppointmentDetailQuery, type AppointmentViewer, type AppointmentViewerRole } from './application/queries/get-appointment-detail.query.js';
 export { GetQueuePositionQuery, type QueuePositionResult } from './application/queries/get-queue-position.query.js';
 export { ListMyAppointmentsQuery } from './application/queries/list-my-appointments.query.js';
+export { GetBookingSuspensionQuery, type BookingSuspensionState } from './application/queries/get-booking-suspension.query.js';
+export type { BookingSuspensionDetail, BookingSuspensionRepository } from './application/booking-suspension-repository.js';
 export { KyselyAppointmentRepository } from './infrastructure/appointment.repository.js';
+export { KyselyBookingSuspensionRepository } from './infrastructure/booking-suspension.repository.js';
 export { registerAppointmentRoutes, type AppointmentRouteDeps } from './interface/http/appointment.routes.js';

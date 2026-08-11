@@ -172,6 +172,7 @@ export async function buildApp(container: Container): Promise<FastifyInstance> {
     getAppointmentDetail: container.getAppointmentDetail,
     cancelAppointment: container.cancelAppointment,
     getQueuePosition: container.getQueuePosition,
+    getBookingSuspension: container.getBookingSuspension,
   });
 
   return app;

@@ -64,10 +64,13 @@ import {
   CancelAppointmentHandler,
   GetAppointmentDetailQuery,
   GetAvailabilityQuery,
+  GetBookingSuspensionQuery,
   GetQueuePositionQuery,
   KyselyAppointmentRepository,
+  KyselyBookingSuspensionRepository,
   ListMyAppointmentsQuery,
   type AppointmentRepository,
+  type BookingSuspensionRepository,
 } from '../modules/queueing/index.js';
 import {
   CancelSessionHandler,
@@ -183,6 +186,8 @@ export interface Container {
   readonly getAppointmentDetail: GetAppointmentDetailQuery;
   readonly cancelAppointment: CancelAppointmentHandler;
   readonly getQueuePosition: GetQueuePositionQuery;
+  readonly bookingSuspensionRepository: BookingSuspensionRepository;
+  readonly getBookingSuspension: GetBookingSuspensionQuery;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -321,6 +326,8 @@ export function buildContainer(config: AppConfig): Container {
   const getAppointmentDetail = new GetAppointmentDetailQuery(appointmentRepository);
   const cancelAppointment = new CancelAppointmentHandler(appointmentRepository, policyStore, auditRecorder, clock, (input) => enqueueNotification(db, input));
   const getQueuePosition = new GetQueuePositionQuery(appointmentRepository, policyStore, clock);
+  const bookingSuspensionRepository: BookingSuspensionRepository = new KyselyBookingSuspensionRepository(db);
+  const getBookingSuspension = new GetBookingSuspensionQuery(bookingSuspensionRepository, clock);
 
   return {
     config,
@@ -393,6 +400,8 @@ export function buildContainer(config: AppConfig): Container {
     getAppointmentDetail,
     cancelAppointment,
     getQueuePosition,
+    bookingSuspensionRepository,
+    getBookingSuspension,
   };
 }
 

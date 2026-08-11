@@ -309,6 +309,8 @@ async function buildTestApp(): Promise<{
     getAppointmentDetail: undefined as unknown as Container['getAppointmentDetail'],
     cancelAppointment: undefined as unknown as Container['cancelAppointment'],
     getQueuePosition: undefined as unknown as Container['getQueuePosition'],
+    bookingSuspensionRepository: undefined as unknown as Container['bookingSuspensionRepository'],
+    getBookingSuspension: undefined as unknown as Container['getBookingSuspension'],
   };
 
   return { app: await buildApp(container), repository, sentEmails };

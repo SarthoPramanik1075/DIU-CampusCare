@@ -10,6 +10,7 @@ import type { BookAppointmentHandler } from '../../application/book-appointment.
 import { appointmentNotFoundError, type CancelAppointmentHandler } from '../../application/cancel-appointment.handler.js';
 import type { AppointmentViewerRole, GetAppointmentDetailQuery } from '../../application/queries/get-appointment-detail.query.js';
 import type { AvailabilitySessionItem, GetAvailabilityQuery } from '../../application/queries/get-availability.query.js';
+import type { BookingSuspensionState, GetBookingSuspensionQuery } from '../../application/queries/get-booking-suspension.query.js';
 import type { GetQueuePositionQuery } from '../../application/queries/get-queue-position.query.js';
 import type { ListMyAppointmentsQuery } from '../../application/queries/list-my-appointments.query.js';
 import { canCancel } from '../../domain/appointment-status.js';
@@ -23,6 +24,7 @@ export interface AppointmentRouteDeps {
   readonly getAppointmentDetail: GetAppointmentDetailQuery;
   readonly cancelAppointment: CancelAppointmentHandler;
   readonly getQueuePosition: GetQueuePositionQuery;
+  readonly getBookingSuspension: GetBookingSuspensionQuery;
 }
 
 const DETAIL_VIEWER_ROLES: readonly AppointmentViewerRole[] = ['STU', 'DOC', 'MCS', 'ADM'];
@@ -126,6 +128,14 @@ function cancelledAppointmentDto(appointment: CancelledAppointment) {
     cancelledAt: appointment.cancelledAt.toISOString(),
     penaltyApplied: false,
     version: appointment.version,
+  };
+}
+
+function bookingSuspensionDto(state: BookingSuspensionState) {
+  return {
+    suspendedUntil: state.suspendedUntil.toISOString(),
+    reason: state.reason,
+    walkInRemainsAvailable: state.walkInRemainsAvailable,
   };
 }
 
@@ -263,6 +273,16 @@ export function registerAppointmentRoutes(app: FastifyInstance, deps: Appointmen
         asOf: result.value.asOf.toISOString(),
         pollAfterSeconds: result.value.pollAfterSeconds,
       };
+    },
+  );
+
+  app.get(
+    '/api/v1/me/booking-suspension',
+    { preHandler: deps.pep({ resource: 'appointment-own', action: 'read', isOwner: () => () => true }) },
+    async (request) => {
+      const studentId = await resolveOwnUserId(request, deps.getSession);
+      const state = await deps.getBookingSuspension.execute(studentId);
+      return state === null ? null : bookingSuspensionDto(state);
     },
   );
 }
