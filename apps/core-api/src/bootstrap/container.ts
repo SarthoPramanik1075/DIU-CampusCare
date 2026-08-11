@@ -64,6 +64,7 @@ import {
   BookAppointmentHandler,
   CancelAppointmentHandler,
   CheckInAppointmentHandler,
+  ExpireUnstartedSessionBookingsHandler,
   GetAppointmentDetailQuery,
   GetAvailabilityQuery,
   GetBookingSuspensionQuery,
@@ -206,6 +207,7 @@ export interface Container {
   readonly markEmergency: MarkEmergencyHandler;
   readonly recalculateSessionEstimates: RecalculateSessionEstimatesHandler;
   readonly recordConsultationMetrics: RecordConsultationMetricsHandler;
+  readonly expireUnstartedSessionBookings: ExpireUnstartedSessionBookingsHandler;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -345,11 +347,12 @@ export function buildContainer(config: AppConfig): Container {
   const getQueuePosition = new GetQueuePositionQuery(appointmentRepository, policyStore, clock);
   const bookingSuspensionRepository: BookingSuspensionRepository = new KyselyBookingSuspensionRepository(db);
   const getBookingSuspension = new GetBookingSuspensionQuery(bookingSuspensionRepository, clock);
-  const getQueueConsole = new GetQueueConsoleQuery(listClinicSessions, appointmentRepository, auditRecorder);
   const getSessionQueue = new GetSessionQueueQuery(appointmentRepository, auditRecorder);
 
   const recalculateSessionEstimates = new RecalculateSessionEstimatesHandler(appointmentRepository, policyStore, auditRecorder, (input) => enqueueNotification(db, input));
   const recordConsultationMetrics = new RecordConsultationMetricsHandler(appointmentRepository, auditRecorder);
+  const expireUnstartedSessionBookings = new ExpireUnstartedSessionBookingsHandler(appointmentRepository, auditRecorder, clock, (input) => enqueueNotification(db, input));
+  const getQueueConsole = new GetQueueConsoleQuery(listClinicSessions, appointmentRepository, auditRecorder, expireUnstartedSessionBookings);
 
   const cancelAppointment = new CancelAppointmentHandler(
     appointmentRepository,
@@ -455,6 +458,7 @@ export function buildContainer(config: AppConfig): Container {
     markEmergency,
     recalculateSessionEstimates,
     recordConsultationMetrics,
+    expireUnstartedSessionBookings,
   };
 }
 

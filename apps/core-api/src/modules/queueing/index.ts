@@ -52,11 +52,12 @@ export {
   type CreateBookingInput,
   type CreateBookingOutcome,
   type EmergencyOutcome,
+  type EstimateAccuracySampleInput,
+  type ExpiredBookingNotice,
   type MyAppointmentListItem,
   type NoShowOutcome,
   type QueueConsoleRow,
   type QueueEntrySummary,
-  type EstimateAccuracySampleInput,
   type RecalculationTargetRow,
   type ReversalOutcome,
   type ServiceCalendarClosure,
@@ -78,6 +79,7 @@ export {
 export { MarkEmergencyHandler, type MarkEmergencyCommandInput, type MarkEmergencyResult } from './application/mark-emergency.handler.js';
 export { RecalculateSessionEstimatesHandler } from './application/recalculate-session-estimates.handler.js';
 export { RecordConsultationMetricsHandler, type RecordConsultationMetricsInput } from './application/record-consultation-metrics.handler.js';
+export { ExpireUnstartedSessionBookingsHandler, type ExpireUnstartedSessionBookingsResult } from './application/expire-unstarted-session-bookings.handler.js';
 export { GetAvailabilityQuery, type AvailabilitySessionItem } from './application/queries/get-availability.query.js';
 export { GetAppointmentDetailQuery, type AppointmentViewer, type AppointmentViewerRole } from './application/queries/get-appointment-detail.query.js';
 export { GetQueuePositionQuery, type QueuePositionResult } from './application/queries/get-queue-position.query.js';

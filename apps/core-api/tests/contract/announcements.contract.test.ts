@@ -138,6 +138,7 @@ function buildTestApp(repository: AnnouncementRepository, now: Date): Promise<Fa
     markEmergency: undefined as unknown as Container['markEmergency'],
     recalculateSessionEstimates: undefined as unknown as Container['recalculateSessionEstimates'],
     recordConsultationMetrics: undefined as unknown as Container['recordConsultationMetrics'],
+    expireUnstartedSessionBookings: undefined as unknown as Container['expireUnstartedSessionBookings'],
   };
 
   return buildApp(container);

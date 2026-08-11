@@ -206,6 +206,16 @@ export interface EstimateAccuracySampleInput {
   readonly deviationMinutes: number;
 }
 
+/** `ExpireUnstartedSessionBookingsHandler`'s own read (M3-H, FR-APT-33/BR-22/EC-13) — enough about one just-expired booking to send its apology-and-rebooking notice. */
+export interface ExpiredBookingNotice {
+  readonly appointmentId: string;
+  readonly appointmentRef: string;
+  readonly clinicSessionId: string;
+  readonly studentId: string | null;
+  readonly doctorName: string;
+  readonly sessionDate: string;
+}
+
 export interface AppointmentRepository {
   findSlotBookingContext(sessionSlotId: string): Promise<SlotBookingContext | null>;
   listAvailableSlots(sessionId: string): Promise<readonly AvailableSlotItem[]>;
@@ -236,4 +246,6 @@ export interface AppointmentRepository {
   listDoctorTrailingConsultationDurations(doctorId: string, since: Date): Promise<readonly number[]>;
   updateCurrentEstimate(appointmentId: string, currentEstimate: Date, markSlipNotified: boolean, now: Date): Promise<void>;
   recordEstimateAccuracySample(input: EstimateAccuracySampleInput): Promise<void>;
+  /** FR-APT-33/BR-22/EC-13 — every `booked` appointment in a session that ended (`ends_at < now`) while still `scheduled` (never started by staff) transitions to `expired`, never `no_show`. Returns one notice per row actually swept. */
+  expireUnstartedSessionBookings(now: Date): Promise<readonly ExpiredBookingNotice[]>;
 }

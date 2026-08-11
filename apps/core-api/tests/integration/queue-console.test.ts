@@ -4,7 +4,8 @@ import { afterAll, beforeAll, describe, expect, it } from 'vitest';
 
 import type { Database } from '../../src/infrastructure/database/client.js';
 import { AuditRecorder } from '../../src/kernel/audit/audit-recorder.js';
-import { GetQueueConsoleQuery, GetSessionQueueQuery, KyselyAppointmentRepository, type AppointmentRepository } from '../../src/modules/queueing/index.js';
+import { SystemClock } from '../../src/kernel/clock/clock.js';
+import { ExpireUnstartedSessionBookingsHandler, GetQueueConsoleQuery, GetSessionQueueQuery, KyselyAppointmentRepository, type AppointmentRepository } from '../../src/modules/queueing/index.js';
 import { deriveSlots, KyselyClinicSessionRepository, KyselyDoctorRepository, ListClinicSessionsQuery, type ClinicSessionRepository } from '../../src/modules/scheduling/index.js';
 import { createScratchDatabase, type ScratchDatabase } from '../support/scratch-database.js';
 
@@ -67,7 +68,8 @@ describe('Queue console reads (M3-E) — integration', () => {
     normalSlots = slotRows.slice(0, 3).map((row) => row.id);
     emergencySlot = slotRows[3]?.id ?? '';
 
-    getQueueConsole = new GetQueueConsoleQuery(new ListClinicSessionsQuery(clinicSessionRepository), repository, auditRecorder);
+    const expireUnstartedSessionBookings = new ExpireUnstartedSessionBookingsHandler(repository, auditRecorder, new SystemClock(), () => Promise.resolve());
+    getQueueConsole = new GetQueueConsoleQuery(new ListClinicSessionsQuery(clinicSessionRepository), repository, auditRecorder, expireUnstartedSessionBookings);
     getSessionQueue = new GetSessionQueueQuery(repository, auditRecorder);
 
     async function bookAt(slotId: string, slotIndex: number, isEmergency: boolean): Promise<void> {

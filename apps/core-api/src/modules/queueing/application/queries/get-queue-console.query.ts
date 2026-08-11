@@ -5,6 +5,7 @@ import type { ClinicSessionListItem, ListClinicSessionsQuery } from '../../../sc
 import { permittedTransitions, type PermittedTransitions } from '../../domain/appointment-status.js';
 import { orderQueue } from '../../domain/queue-ordering.js';
 import type { AppointmentRepository, QueueConsoleRow } from '../appointment-repository.js';
+import type { ExpireUnstartedSessionBookingsHandler } from '../expire-unstarted-session-bookings.handler.js';
 
 export interface QueueCounts {
   readonly waiting: number;
@@ -52,15 +53,24 @@ export function computeCounts(rows: readonly QueueConsoleRow[]): QueueCounts {
  * established. Writes `audit.data_access_log` once per distinct student
  * whose identity this response carries (FR-AUD-03), mirroring
  * `preview-unavailability.handler.ts`'s exact pattern.
+ *
+ * Also where M3-H's session-expiry sweep runs (no background worker exists
+ * in this repo — see `ExpireUnstartedSessionBookingsHandler`'s own doc
+ * comment) — this is the screen staff actually look at to notice a session
+ * that was simply never run, so it's the natural place to lazily correct
+ * stale `booked` rows before they're read.
  */
 export class GetQueueConsoleQuery {
   constructor(
     private readonly listClinicSessions: ListClinicSessionsQuery,
     private readonly appointmentRepository: AppointmentRepository,
     private readonly auditRecorder: AuditRecorder,
+    private readonly expireUnstartedSessionBookings: ExpireUnstartedSessionBookingsHandler,
   ) {}
 
   async execute(date: string, doctorId: string | undefined, actorId: string, correlationId: string): Promise<Result<readonly QueueConsoleSession[], ValidationError>> {
+    await this.expireUnstartedSessionBookings.execute(correlationId);
+
     const sessionsResult = await this.listClinicSessions.execute({ from: date, to: date, ...(doctorId === undefined ? {} : { doctorId }) });
     if (!sessionsResult.ok) return err(sessionsResult.error);
 

@@ -15,6 +15,7 @@ import {
   type CreateBookingOutcome,
   type EmergencyOutcome,
   type EstimateAccuracySampleInput,
+  type ExpiredBookingNotice,
   type MyAppointmentListItem,
   type NoShowOutcome,
   type QueueConsoleRow,
@@ -686,5 +687,45 @@ export class KyselyAppointmentRepository implements AppointmentRepository {
         deviation_minutes: input.deviationMinutes,
       })
       .execute();
+  }
+
+  async expireUnstartedSessionBookings(now: Date): Promise<readonly ExpiredBookingNotice[]> {
+    const candidates = await this.db
+      .selectFrom('queueing.appointment')
+      .innerJoin('scheduling.clinic_session', 'scheduling.clinic_session.id', 'queueing.appointment.clinic_session_id')
+      .innerJoin('scheduling.doctor', 'scheduling.doctor.id', 'scheduling.clinic_session.doctor_id')
+      .select([
+        'queueing.appointment.id as appointment_id',
+        'queueing.appointment.appointment_ref',
+        'queueing.appointment.clinic_session_id',
+        'queueing.appointment.student_id',
+        'scheduling.doctor.full_name as doctor_name',
+        'scheduling.clinic_session.session_date',
+      ])
+      .where('queueing.appointment.status', '=', 'booked')
+      .where('scheduling.clinic_session.status', '=', 'scheduled')
+      .where('scheduling.clinic_session.ends_at', '<', now)
+      .execute();
+
+    if (candidates.length === 0) return [];
+
+    await this.db
+      .updateTable('queueing.appointment')
+      .set({ status: 'expired' })
+      .where(
+        'id',
+        'in',
+        candidates.map((row) => row.appointment_id),
+      )
+      .execute();
+
+    return candidates.map((row) => ({
+      appointmentId: row.appointment_id,
+      appointmentRef: row.appointment_ref,
+      clinicSessionId: row.clinic_session_id,
+      studentId: row.student_id,
+      doctorName: row.doctor_name,
+      sessionDate: row.session_date,
+    }));
   }
 }
