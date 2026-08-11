@@ -161,9 +161,13 @@ export interface StudentProfileTable {
 export interface BookingSuspensionTable {
   id: string;
   student_id: string;
+  suspended_from: Generated<Date>;
   suspended_until: Date;
   no_show_count: number;
   lifted_at: Date | null;
+  lifted_by: string | null;
+  lift_reason: string | null;
+  created_at: Generated<Date>;
 }
 
 // ---------------------------------------------------------------------
@@ -306,12 +310,49 @@ export interface AppointmentTable {
   serial_number: number;
   origin: AppointmentOrigin;
   status: Generated<AppointmentStatus>;
+  is_emergency: Generated<boolean>;
+  emergency_reason: string | null;
+  exceeded_walkin_allocation: Generated<boolean>;
+  visit_reason_category_id: string | null;
+  visit_reason_note: string | null;
+  estimate_at_booking: Date | null;
+  current_estimate: Date | null;
+  last_slip_notified_at: Date | null;
   payment_status: Generated<PaymentState>;
+  checked_in_at: Date | null;
+  consultation_started_at: Date | null;
+  consultation_completed_at: Date | null;
+  no_show_marked_at: Date | null;
+  no_show_marked_by: string | null;
+  /** DDL-08 — set on the first No-show attempt against this row, starting VR-31's grace-period clock. */
+  called_at: Date | null;
   cancelled_at: Date | null;
   cancellation_reason: string | null;
+  entered_retrospectively: Generated<boolean>;
+  idempotency_key: string | null;
   created_by: string;
+  created_at: Generated<Date>;
   updated_at: Generated<Date>;
   version: Generated<number>;
+}
+
+export interface VisitReasonCategoryTable {
+  id: string;
+  code: string;
+  label: string;
+  is_active: Generated<boolean>;
+  sort_order: Generated<number>;
+}
+
+/** DDL-08 (`000_AMENDMENTS.md`) — NFR-ACC-01/02's estimate-accuracy instrumentation. */
+export interface EstimateAccuracySampleTable {
+  id: string;
+  appointment_id: string;
+  doctor_id: string;
+  predicted_at: Date;
+  actual_started_at: Date;
+  deviation_minutes: number;
+  created_at: Generated<Date>;
 }
 
 // ---------------------------------------------------------------------
@@ -429,6 +470,8 @@ export interface Database {
   'scheduling.doctor_unavailability': DoctorUnavailabilityTable;
   'scheduling.unavailability_preview': UnavailabilityPreviewTable;
   'queueing.appointment': AppointmentTable;
+  'queueing.visit_reason_category': VisitReasonCategoryTable;
+  'queueing.estimate_accuracy_sample': EstimateAccuracySampleTable;
   'pharmacy.store_hours': StoreHoursTable;
   'pharmacy.store_status_override': StoreStatusOverrideTable;
   'notification.notification_template': NotificationTemplateTable;

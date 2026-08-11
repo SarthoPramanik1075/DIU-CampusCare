@@ -284,6 +284,30 @@ enforced in the handler by checking the entry's date against server time.
 
 ---
 
+### DDL-08 · no generator for `MED-<YYYY>-<sequence>`, and no storage for estimate-accuracy instrumentation (M3)
+
+**Found by** implementing FR-APT-04 (`POST /api/v1/appointments`) and
+M3-T21 (NFR-ACC-01/02). DATABASE.md names the appointment reference
+format and the accuracy requirement, but defines neither's storage —
+the same shape of omission DDL-03/05/07 already resolved three times.
+
+**Applied**, in `015_queueing_extensions.sql`:
+1. `CREATE SEQUENCE queueing.appointment_ref_seq` — read inside the
+   booking/walk-in transaction and formatted with the current year
+   (`domain/appointment-ref.ts`'s `formatAppointmentRef`). A plain
+   sequence, not a year-scoped counter table: uniqueness is the actual
+   requirement, and FR-APT-04 never requires annual reset, so a
+   simpler mechanism than `fn_next_serial`'s per-session pattern is
+   enough here.
+2. `queueing.estimate_accuracy_sample` — one row per completed
+   consultation, predicted vs. actual start time. Write-only from the
+   app; the 75%-within-±15-minutes figure NFR-ACC-01 names becomes
+   computable from this table once real usage accumulates, but is not
+   itself verifiable without that usage (see the M3 plan's own scoping
+   notes).
+
+---
+
 ## Raised, not taken
 
 ### RST-01 · `duty_roster` overlap is an application check, not a constraint
