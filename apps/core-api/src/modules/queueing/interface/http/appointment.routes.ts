@@ -4,16 +4,22 @@ import type { FastifyInstance } from 'fastify';
 import type { AuthorizationRouteConfig, PolicyEnforcementHandler } from '../../../../kernel/authz/policy-enforcement-point.js';
 import { AuthorizationError, ValidationError } from '../../../../kernel/errors/domain-error.js';
 import { getCorrelationId } from '../../../../kernel/http/correlation.js';
+import { getIdempotencyKey } from '../../../../kernel/http/idempotency.js';
 import { resolveOwnUserId, SESSION_COOKIE_NAME, unauthenticatedError, type GetSessionQuery } from '../../../iam/index.js';
+import type { AdvanceAppointmentHandler, AdvanceResult } from '../../application/advance-appointment.handler.js';
 import type { AppointmentDetail, AppointmentListScope, BookedAppointment, CancelledAppointment, MyAppointmentListItem } from '../../application/appointment-repository.js';
 import type { BookAppointmentHandler } from '../../application/book-appointment.handler.js';
 import { appointmentNotFoundError, type CancelAppointmentHandler } from '../../application/cancel-appointment.handler.js';
+import type { CheckInAppointmentHandler, CheckInResult } from '../../application/check-in-appointment.handler.js';
+import type { MarkEmergencyHandler, MarkEmergencyResult } from '../../application/mark-emergency.handler.js';
+import type { MarkNoShowHandler, MarkNoShowResult } from '../../application/mark-no-show.handler.js';
 import type { AppointmentViewerRole, GetAppointmentDetailQuery } from '../../application/queries/get-appointment-detail.query.js';
 import type { AvailabilitySessionItem, GetAvailabilityQuery } from '../../application/queries/get-availability.query.js';
 import type { BookingSuspensionState, GetBookingSuspensionQuery } from '../../application/queries/get-booking-suspension.query.js';
 import type { GetQueuePositionQuery } from '../../application/queries/get-queue-position.query.js';
 import type { ListMyAppointmentsQuery } from '../../application/queries/list-my-appointments.query.js';
-import { canCancel } from '../../domain/appointment-status.js';
+import type { ReverseAppointmentStatusHandler, ReverseAppointmentStatusResult } from '../../application/reverse-appointment-status.handler.js';
+import { canCancel, type AppointmentStatus } from '../../domain/appointment-status.js';
 
 export interface AppointmentRouteDeps {
   readonly pep: (config: AuthorizationRouteConfig) => PolicyEnforcementHandler;
@@ -25,6 +31,23 @@ export interface AppointmentRouteDeps {
   readonly cancelAppointment: CancelAppointmentHandler;
   readonly getQueuePosition: GetQueuePositionQuery;
   readonly getBookingSuspension: GetBookingSuspensionQuery;
+  readonly checkInAppointment: CheckInAppointmentHandler;
+  readonly advanceAppointment: AdvanceAppointmentHandler;
+  readonly markNoShow: MarkNoShowHandler;
+  readonly reverseAppointmentStatus: ReverseAppointmentStatusHandler;
+  readonly markEmergency: MarkEmergencyHandler;
+}
+
+const ADVANCE_TARGETS: readonly AppointmentStatus[] = ['waiting', 'in_consultation', 'completed'];
+
+function isAdvanceTarget(value: unknown): value is AppointmentStatus {
+  return typeof value === 'string' && (ADVANCE_TARGETS as readonly string[]).includes(value);
+}
+
+const REVERSAL_TARGETS: readonly AppointmentStatus[] = ['booked', 'checked_in', 'waiting', 'in_consultation'];
+
+function isReversalTarget(value: unknown): value is AppointmentStatus {
+  return typeof value === 'string' && (REVERSAL_TARGETS as readonly string[]).includes(value);
 }
 
 const DETAIL_VIEWER_ROLES: readonly AppointmentViewerRole[] = ['STU', 'DOC', 'MCS', 'ADM'];
@@ -131,6 +154,79 @@ function cancelledAppointmentDto(appointment: CancelledAppointment) {
   };
 }
 
+/** Every queue-transition response carries this — real once M3-G's recalculation engine exists; honestly `false` until then rather than fabricated. */
+const ESTIMATES_RECALCULATED_PLACEHOLDER = false;
+
+function checkInDto(result: CheckInResult) {
+  return {
+    appointmentId: result.appointment.appointmentId,
+    status: result.appointment.status,
+    checkedInAt: result.appointment.checkedInAt?.toISOString() ?? null,
+    serialNumber: result.appointment.serialNumber,
+    position: result.position,
+    permittedTransitions: result.permittedTransitions,
+    enteredRetrospectively: false,
+    version: result.appointment.version,
+  };
+}
+
+function advanceDto(result: AdvanceResult) {
+  return {
+    appointmentId: result.appointment.appointmentId,
+    status: result.appointment.status,
+    consultationStartedAt: result.appointment.consultationStartedAt?.toISOString() ?? null,
+    consultationCompletedAt: result.appointment.consultationCompletedAt?.toISOString() ?? null,
+    paymentOverrideRecorded: result.paymentOverrideRecorded,
+    permittedTransitions: result.permittedTransitions,
+    estimatesRecalculated: ESTIMATES_RECALCULATED_PLACEHOLDER,
+    version: result.appointment.version,
+  };
+}
+
+function noShowDto(result: MarkNoShowResult) {
+  return {
+    appointmentId: result.appointment.appointmentId,
+    status: result.appointment.status,
+    noShowMarkedAt: result.appointment.noShowMarkedAt?.toISOString() ?? null,
+    noShowMarkedBy: result.appointment.noShowMarkedBy,
+    rollingNoShowCount: result.rollingNoShowCount,
+    suspensionApplied: result.suspensionApplied === null ? null : { suspendedUntil: result.suspensionApplied.suspendedUntil.toISOString(), walkInRemainsAvailable: true },
+    estimatesRecalculated: ESTIMATES_RECALCULATED_PLACEHOLDER,
+    version: result.appointment.version,
+  };
+}
+
+function reverseDto(result: ReverseAppointmentStatusResult, reason: string) {
+  return {
+    appointmentId: result.appointment.appointmentId,
+    status: result.appointment.status,
+    reversedFrom: result.reversedFrom,
+    reversalReason: reason,
+    suspensionRecalculated: result.suspensionRecalculated,
+    version: result.appointment.version,
+  };
+}
+
+function emergencyDto(result: MarkEmergencyResult) {
+  return {
+    appointmentId: result.appointment.appointmentId,
+    isEmergency: result.appointment.isEmergency,
+    position: result.position,
+    serialNumber: result.appointment.serialNumber,
+    patientsNotified: result.patientsNotified,
+    notificationSuppressed: result.notificationSuppressed,
+    estimatesRecalculated: ESTIMATES_RECALCULATED_PLACEHOLDER,
+    version: result.appointment.version,
+  };
+}
+
+function requireVersion(body: { version?: unknown }): number {
+  if (typeof body.version !== 'number') {
+    throw new ValidationError({ code: 'VALIDATION_FAILED', message: 'Include the current version.', fields: [{ field: 'version', rule: 'VR-92', message: 'Required' }] });
+  }
+  return body.version;
+}
+
 function bookingSuspensionDto(state: BookingSuspensionState) {
   return {
     suspendedUntil: state.suspendedUntil.toISOString(),
@@ -233,20 +329,13 @@ export function registerAppointmentRoutes(app: FastifyInstance, deps: Appointmen
 
     const { id } = request.params as { id: string };
     const body = request.body as { reason?: unknown; version?: unknown };
-    if (typeof body.version !== 'number') {
-      throw new ValidationError({
-        code: 'VALIDATION_FAILED',
-        message: 'Include the current version.',
-        fields: [{ field: 'version', rule: 'VR-92', message: 'Required' }],
-      });
-    }
 
     const result = await deps.cancelAppointment.execute({
       appointmentId: id,
       requesterId: session.userId,
       requesterRole,
       reason: typeof body.reason === 'string' ? body.reason : null,
-      expectedVersion: body.version,
+      expectedVersion: requireVersion(body),
       actorId: session.userId,
       correlationId: getCorrelationId(request),
     });
@@ -283,6 +372,143 @@ export function registerAppointmentRoutes(app: FastifyInstance, deps: Appointmen
       const studentId = await resolveOwnUserId(request, deps.getSession);
       const state = await deps.getBookingSuspension.execute(studentId);
       return state === null ? null : bookingSuspensionDto(state);
+    },
+  );
+
+  app.post(
+    '/api/v1/appointments/:id/check-in',
+    { preHandler: deps.pep({ resource: 'live-queue', action: 'update' }) },
+    async (request) => {
+      const { id } = request.params as { id: string };
+      const body = request.body as { version?: unknown };
+      const actorId = await resolveOwnUserId(request, deps.getSession);
+
+      const result = await deps.checkInAppointment.execute({
+        appointmentId: id,
+        expectedVersion: requireVersion(body),
+        idempotencyKey: getIdempotencyKey(request),
+        actorId,
+        correlationId: getCorrelationId(request),
+      });
+      if (!result.ok) throw result.error;
+
+      return checkInDto(result.value);
+    },
+  );
+
+  app.post(
+    '/api/v1/appointments/:id/advance',
+    { preHandler: deps.pep({ resource: 'live-queue', action: 'update' }) },
+    async (request) => {
+      const { id } = request.params as { id: string };
+      const body = request.body as { toStatus?: unknown; paymentOverrideReason?: unknown; version?: unknown };
+      if (!isAdvanceTarget(body.toStatus)) {
+        throw new ValidationError({
+          code: 'VALIDATION_FAILED',
+          message: 'Choose a valid next status.',
+          fields: [{ field: 'toStatus', rule: 'VR-28', message: 'Must be waiting, in_consultation or completed' }],
+        });
+      }
+      const actorId = await resolveOwnUserId(request, deps.getSession);
+
+      const result = await deps.advanceAppointment.execute({
+        appointmentId: id,
+        toStatus: body.toStatus,
+        paymentOverrideReason: typeof body.paymentOverrideReason === 'string' ? body.paymentOverrideReason : null,
+        expectedVersion: requireVersion(body),
+        idempotencyKey: getIdempotencyKey(request),
+        actorId,
+        correlationId: getCorrelationId(request),
+      });
+      if (!result.ok) throw result.error;
+
+      return advanceDto(result.value);
+    },
+  );
+
+  app.post(
+    '/api/v1/appointments/:id/no-show',
+    { preHandler: deps.pep({ resource: 'live-queue', action: 'update' }) },
+    async (request) => {
+      const { id } = request.params as { id: string };
+      const body = request.body as { reason?: unknown; version?: unknown };
+      const actorId = await resolveOwnUserId(request, deps.getSession);
+
+      const result = await deps.markNoShow.execute({
+        appointmentId: id,
+        reason: typeof body.reason === 'string' ? body.reason : null,
+        expectedVersion: requireVersion(body),
+        idempotencyKey: getIdempotencyKey(request),
+        actorId,
+        correlationId: getCorrelationId(request),
+      });
+      if (!result.ok) throw result.error;
+
+      return noShowDto(result.value);
+    },
+  );
+
+  app.post(
+    '/api/v1/appointments/:id/reverse',
+    { preHandler: deps.pep({ resource: 'live-queue', action: 'update' }) },
+    async (request) => {
+      const { id } = request.params as { id: string };
+      const body = request.body as { toStatus?: unknown; reason?: unknown; version?: unknown };
+      if (!isReversalTarget(body.toStatus)) {
+        throw new ValidationError({
+          code: 'VALIDATION_FAILED',
+          message: 'Choose a valid state to revert to.',
+          fields: [{ field: 'toStatus', rule: 'VR-32', message: 'Must be a state this entry previously held' }],
+        });
+      }
+      if (typeof body.reason !== 'string') {
+        throw new ValidationError({
+          code: 'VALIDATION_FAILED',
+          message: 'Give a reason of at least 10 characters for the correction.',
+          fields: [{ field: 'reason', rule: 'VR-93', message: 'Required' }],
+        });
+      }
+      const actorId = await resolveOwnUserId(request, deps.getSession);
+
+      const result = await deps.reverseAppointmentStatus.execute({
+        appointmentId: id,
+        toStatus: body.toStatus,
+        reason: body.reason,
+        expectedVersion: requireVersion(body),
+        actorId,
+        correlationId: getCorrelationId(request),
+      });
+      if (!result.ok) throw result.error;
+
+      return reverseDto(result.value, body.reason);
+    },
+  );
+
+  app.post(
+    '/api/v1/appointments/:id/emergency',
+    { preHandler: deps.pep({ resource: 'emergency-designation', action: 'create' }) },
+    async (request) => {
+      const { id } = request.params as { id: string };
+      const body = request.body as { reason?: unknown; version?: unknown };
+      if (typeof body.reason !== 'string') {
+        throw new ValidationError({
+          code: 'VALIDATION_FAILED',
+          message: 'Give a reason of at least 10 characters for the emergency.',
+          fields: [{ field: 'reason', rule: 'VR-30', message: 'Required' }],
+        });
+      }
+      const actorId = await resolveOwnUserId(request, deps.getSession);
+
+      const result = await deps.markEmergency.execute({
+        appointmentId: id,
+        reason: body.reason,
+        expectedVersion: requireVersion(body),
+        actorId,
+        correlationId: getCorrelationId(request),
+      });
+      if (!result.ok) throw result.error;
+
+      return emergencyDto(result.value);
     },
   );
 }

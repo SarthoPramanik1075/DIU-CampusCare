@@ -36,4 +36,15 @@ export class KyselyBookingSuspensionRepository implements BookingSuspensionRepos
       .executeTakeFirst();
     return row === undefined ? null : { suspendedUntil: row.suspended_until, noShowCount: row.no_show_count };
   }
+
+  async liftActiveSuspension(studentId: string, liftedBy: string, liftReason: string, now: Date): Promise<boolean> {
+    const result = await this.db
+      .updateTable('identity.booking_suspension')
+      .set({ lifted_at: now, lifted_by: liftedBy, lift_reason: liftReason })
+      .where('student_id', '=', studentId)
+      .where('lifted_at', 'is', null)
+      .where('suspended_until', '>', now)
+      .executeTakeFirst();
+    return result.numUpdatedRows > 0n;
+  }
 }

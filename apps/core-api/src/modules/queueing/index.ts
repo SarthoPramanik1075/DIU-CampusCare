@@ -51,15 +51,29 @@ export {
   type CancelledAppointment,
   type CreateBookingInput,
   type CreateBookingOutcome,
+  type EmergencyOutcome,
   type MyAppointmentListItem,
+  type NoShowOutcome,
   type QueueConsoleRow,
   type QueueEntrySummary,
+  type ReversalOutcome,
   type ServiceCalendarClosure,
   type SessionQueueContext,
   type SlotBookingContext,
+  type TransitionOutcome,
+  type WaitingQueueEntry,
 } from './application/appointment-repository.js';
 export { BookAppointmentHandler, type BookAppointmentCommandInput } from './application/book-appointment.handler.js';
 export { appointmentNotFoundError, CancelAppointmentHandler, type CancelAppointmentCommandInput } from './application/cancel-appointment.handler.js';
+export { CheckInAppointmentHandler, type CheckInAppointmentCommandInput, type CheckInResult } from './application/check-in-appointment.handler.js';
+export { AdvanceAppointmentHandler, type AdvanceAppointmentCommandInput, type AdvanceResult } from './application/advance-appointment.handler.js';
+export { MarkNoShowHandler, type MarkNoShowCommandInput, type MarkNoShowResult, type SuspensionApplied } from './application/mark-no-show.handler.js';
+export {
+  ReverseAppointmentStatusHandler,
+  type ReverseAppointmentStatusCommandInput,
+  type ReverseAppointmentStatusResult,
+} from './application/reverse-appointment-status.handler.js';
+export { MarkEmergencyHandler, type MarkEmergencyCommandInput, type MarkEmergencyResult } from './application/mark-emergency.handler.js';
 export { GetAvailabilityQuery, type AvailabilitySessionItem } from './application/queries/get-availability.query.js';
 export { GetAppointmentDetailQuery, type AppointmentViewer, type AppointmentViewerRole } from './application/queries/get-appointment-detail.query.js';
 export { GetQueuePositionQuery, type QueuePositionResult } from './application/queries/get-queue-position.query.js';

@@ -93,6 +93,11 @@ export interface AppointmentDetail {
   readonly consultationCompletedAt: Date | null;
   readonly cancelledAt: Date | null;
   readonly cancellationReason: string | null;
+  readonly noShowMarkedAt: Date | null;
+  readonly noShowMarkedBy: string | null;
+  /** The command-buffer replay column (§5.6, DDL comment on `queueing.appointment.idempotency_key`) — the key that last successfully mutated this row, if any. */
+  readonly idempotencyKey: string | null;
+  readonly calledAt: Date | null;
   readonly version: number;
 }
 
@@ -152,6 +157,34 @@ export interface QueueConsoleRow {
   readonly version: number;
 }
 
+/** Shared shape for every queue-transition command (check-in, advance, no-show, reverse, emergency) — one row's before/after, or why it didn't happen. */
+export type TransitionOutcome =
+  | { readonly outcome: 'success'; readonly appointment: AppointmentDetail; readonly replay?: true }
+  | { readonly outcome: 'not_found' }
+  | { readonly outcome: 'invalid_transition' }
+  | { readonly outcome: 'stale'; readonly current: AppointmentDetail };
+
+export type NoShowOutcome = TransitionOutcome | { readonly outcome: 'grace_period_not_elapsed'; readonly remainingSeconds: number };
+
+/** One other still-active entry in the same session as a just-marked emergency — `markEmergency`'s own material for EC-12's per-student notification throttle, decided by the handler rather than the repository. */
+export interface WaitingQueueEntry {
+  readonly appointmentId: string;
+  readonly studentId: string | null;
+  readonly lastSlipNotifiedAt: Date | null;
+}
+
+export type EmergencyOutcome =
+  | { readonly outcome: 'success'; readonly appointment: AppointmentDetail; readonly waitingAppointments: readonly WaitingQueueEntry[] }
+  | { readonly outcome: 'not_found' }
+  | { readonly outcome: 'invalid_transition' }
+  | { readonly outcome: 'already_emergency' }
+  | { readonly outcome: 'stale'; readonly current: AppointmentDetail };
+
+export type ReversalOutcome =
+  | TransitionOutcome
+  | { readonly outcome: 'session_already_ended' }
+  | { readonly outcome: 'invalid_reversal_target' };
+
 export interface AppointmentRepository {
   findSlotBookingContext(sessionSlotId: string): Promise<SlotBookingContext | null>;
   listAvailableSlots(sessionId: string): Promise<readonly AvailableSlotItem[]>;
@@ -169,4 +202,12 @@ export interface AppointmentRepository {
   /** F-01's console rows for one session — every non-terminal-or-recently-terminal entry, unordered (the caller applies `orderQueue`). */
   listConsoleRows(clinicSessionId: string): Promise<readonly QueueConsoleRow[]>;
   findSessionQueueContext(sessionId: string): Promise<SessionQueueContext | null>;
+  checkIn(appointmentId: string, expectedVersion: number, now: Date, idempotencyKey: string | null): Promise<TransitionOutcome>;
+  advance(appointmentId: string, toStatus: AppointmentStatus, expectedVersion: number, now: Date, idempotencyKey: string | null): Promise<TransitionOutcome>;
+  /** First call against a row with no `called_at` starts VR-31's grace-period clock rather than immediately rejecting or succeeding — there is no separate "call" endpoint (API §4.3's own list), so this is where that moment is recorded. */
+  markNoShow(appointmentId: string, expectedVersion: number, now: Date, gracePeriodMinutes: number, actorId: string, idempotencyKey: string | null): Promise<NoShowOutcome>;
+  /** Neither `reason` (VR-32) nor a timestamp is persisted on the row itself — nothing in DATABASE.md's schema has a slot for either — the handler records the reason via `AuditRecorder` instead, same as every other reason-only field this module doesn't have a column for. */
+  reverseStatus(appointmentId: string, toStatus: AppointmentStatus, expectedVersion: number): Promise<ReversalOutcome>;
+  markEmergency(appointmentId: string, expectedVersion: number, reason: string): Promise<EmergencyOutcome>;
+  updateLastSlipNotifiedAt(appointmentIds: readonly string[], now: Date): Promise<void>;
 }

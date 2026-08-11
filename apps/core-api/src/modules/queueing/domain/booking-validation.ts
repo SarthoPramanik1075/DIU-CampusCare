@@ -7,6 +7,12 @@
  */
 
 const MAX_VISIT_REASON_NOTE_LENGTH = 200;
+const MINIMUM_REASON_LENGTH = 10;
+
+/** VR-30/VR-32/VR-93 — every mandatory reason field (emergency designation, status reversal): minimum 10 characters after trimming. Mirrors `modules/scheduling/domain/validation.ts`'s helper of the same name (DR-2 — kept module-local). */
+export function isValidReason(reason: string): boolean {
+  return reason.trim().length >= MINIMUM_REASON_LENGTH;
+}
 
 /** VR-20 — a slot committed to must be in the future at the moment of commit. The "unbooked at commit" half of VR-20 is enforced by `uq_appointment_slot_active`, not here — no application check can make that race-free by itself. */
 export function isSlotInFuture(slotStartsAt: Date, now: Date): boolean {

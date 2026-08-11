@@ -18,4 +18,6 @@ export interface BookingSuspensionRepository {
   countRecentNoShows(studentId: string, windowStart: Date): Promise<number>;
   createSuspension(studentId: string, suspendedUntil: Date, noShowCount: number): Promise<void>;
   findActiveSuspensionDetail(studentId: string, now: Date): Promise<BookingSuspensionDetail | null>;
+  /** API §4.3 `POST …/reverse`'s own documented consequence: reversing a No-show that a suspension was solely counted from lifts it, setting `lifted_at`/`lifted_by`/`lift_reason`. Returns `false` when there was nothing active to lift (already lifted, or none). */
+  liftActiveSuspension(studentId: string, liftedBy: string, liftReason: string, now: Date): Promise<boolean>;
 }

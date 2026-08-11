@@ -173,6 +173,11 @@ export async function buildApp(container: Container): Promise<FastifyInstance> {
     cancelAppointment: container.cancelAppointment,
     getQueuePosition: container.getQueuePosition,
     getBookingSuspension: container.getBookingSuspension,
+    checkInAppointment: container.checkInAppointment,
+    advanceAppointment: container.advanceAppointment,
+    markNoShow: container.markNoShow,
+    reverseAppointmentStatus: container.reverseAppointmentStatus,
+    markEmergency: container.markEmergency,
   });
 
   registerQueueConsoleRoutes(app, {

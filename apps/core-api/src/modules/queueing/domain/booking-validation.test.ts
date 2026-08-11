@@ -7,6 +7,7 @@ import {
   isBelowMaxActiveBookings,
   isSlotInFuture,
   isUnderActiveSuspension,
+  isValidReason,
   isValidVisitReasonNote,
   isWithinPublicationWindow,
   remainingGracePeriodSeconds,
@@ -93,5 +94,13 @@ describe('hasGracePeriodElapsed / remainingGracePeriodSeconds — VR-31, BR-14',
     const calledAt = new Date('2026-08-10T10:00:00Z');
     expect(remainingGracePeriodSeconds(calledAt, 20, new Date('2026-08-10T10:15:00Z'))).toBe(300);
     expect(remainingGracePeriodSeconds(calledAt, 20, new Date('2026-08-10T10:25:00Z'))).toBe(0);
+  });
+});
+
+describe('isValidReason — VR-30/VR-32/VR-93', () => {
+  it('rejects under 10 characters after trimming, accepts 10 or more', () => {
+    expect(isValidReason('too short')).toBe(false);
+    expect(isValidReason('  short  ')).toBe(false);
+    expect(isValidReason('exactly 10')).toBe(true);
   });
 });

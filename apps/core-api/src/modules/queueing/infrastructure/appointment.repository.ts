@@ -13,15 +13,20 @@ import {
   type CancelAppointmentOutcome,
   type CreateBookingInput,
   type CreateBookingOutcome,
+  type EmergencyOutcome,
   type MyAppointmentListItem,
+  type NoShowOutcome,
   type QueueConsoleRow,
   type QueueEntrySummary,
+  type ReversalOutcome,
   type ServiceCalendarClosure,
   type SessionQueueContext,
   type SlotBookingContext,
+  type TransitionOutcome,
 } from '../application/appointment-repository.js';
 import { formatAppointmentRef } from '../domain/appointment-ref.js';
-import { canCancel } from '../domain/appointment-status.js';
+import { canAdvanceTo, canCancel, canCheckIn, canMarkNoShow, canReverseTo, isTerminal, type AppointmentStatus } from '../domain/appointment-status.js';
+import { hasGracePeriodElapsed, remainingGracePeriodSeconds } from '../domain/booking-validation.js';
 
 /** Postgres `unique_violation` — the race this insert can hit is `uq_appointment_slot_active` (EC-01). */
 const PG_UNIQUE_VIOLATION = '23505';
@@ -233,6 +238,10 @@ export class KyselyAppointmentRepository implements AppointmentRepository {
         'queueing.appointment.consultation_completed_at',
         'queueing.appointment.cancelled_at',
         'queueing.appointment.cancellation_reason',
+        'queueing.appointment.no_show_marked_at',
+        'queueing.appointment.no_show_marked_by',
+        'queueing.appointment.idempotency_key',
+        'queueing.appointment.called_at',
         'queueing.appointment.version',
       ])
       .where('queueing.appointment.id', '=', appointmentId)
@@ -265,6 +274,10 @@ export class KyselyAppointmentRepository implements AppointmentRepository {
       consultationCompletedAt: row.consultation_completed_at,
       cancelledAt: row.cancelled_at,
       cancellationReason: row.cancellation_reason,
+      noShowMarkedAt: row.no_show_marked_at,
+      noShowMarkedBy: row.no_show_marked_by,
+      idempotencyKey: row.idempotency_key,
+      calledAt: row.called_at,
       version: row.version,
     };
   }
@@ -431,5 +444,174 @@ export class KyselyAppointmentRepository implements AppointmentRepository {
       startsAt: row.starts_at,
       endsAt: row.ends_at,
     };
+  }
+
+  /** Shared by every transition method below: a zero-row optimistic-lock UPDATE means either the row never existed or its version has moved on since the caller read it. */
+  private async staleOrNotFound(appointmentId: string): Promise<{ readonly outcome: 'stale'; readonly current: AppointmentDetail } | { readonly outcome: 'not_found' }> {
+    const current = await this.findAppointmentDetail(appointmentId);
+    return current === null ? { outcome: 'not_found' } : { outcome: 'stale', current };
+  }
+
+  async checkIn(appointmentId: string, expectedVersion: number, now: Date, idempotencyKey: string | null): Promise<TransitionOutcome> {
+    const current = await this.findAppointmentDetail(appointmentId);
+    if (current === null) return { outcome: 'not_found' };
+    if (idempotencyKey !== null && current.idempotencyKey === idempotencyKey) return { outcome: 'success', appointment: current, replay: true };
+    if (!canCheckIn(current.status)) return { outcome: 'invalid_transition' };
+
+    const row = await this.db
+      .updateTable('queueing.appointment')
+      .set({ status: 'checked_in', checked_in_at: now, ...(idempotencyKey !== null ? { idempotency_key: idempotencyKey } : {}) })
+      .where('id', '=', appointmentId)
+      .where('version', '=', expectedVersion)
+      .returning('id')
+      .executeTakeFirst();
+
+    if (row === undefined) return this.staleOrNotFound(appointmentId);
+    const updated = await this.findAppointmentDetail(appointmentId);
+    return updated === null ? { outcome: 'not_found' } : { outcome: 'success', appointment: updated };
+  }
+
+  async advance(appointmentId: string, toStatus: AppointmentStatus, expectedVersion: number, now: Date, idempotencyKey: string | null): Promise<TransitionOutcome> {
+    const current = await this.findAppointmentDetail(appointmentId);
+    if (current === null) return { outcome: 'not_found' };
+    if (idempotencyKey !== null && current.idempotencyKey === idempotencyKey) return { outcome: 'success', appointment: current, replay: true };
+    if (!canAdvanceTo(current.status, toStatus)) return { outcome: 'invalid_transition' };
+
+    const timestampFields =
+      toStatus === 'in_consultation'
+        ? { consultation_started_at: now }
+        : toStatus === 'completed'
+          ? { consultation_completed_at: now }
+          : {};
+
+    const row = await this.db
+      .updateTable('queueing.appointment')
+      .set({ status: toStatus, ...timestampFields, ...(idempotencyKey !== null ? { idempotency_key: idempotencyKey } : {}) })
+      .where('id', '=', appointmentId)
+      .where('version', '=', expectedVersion)
+      .returning('id')
+      .executeTakeFirst();
+
+    if (row === undefined) return this.staleOrNotFound(appointmentId);
+    const updated = await this.findAppointmentDetail(appointmentId);
+    return updated === null ? { outcome: 'not_found' } : { outcome: 'success', appointment: updated };
+  }
+
+  async markNoShow(
+    appointmentId: string,
+    expectedVersion: number,
+    now: Date,
+    gracePeriodMinutes: number,
+    actorId: string,
+    idempotencyKey: string | null,
+  ): Promise<NoShowOutcome> {
+    const current = await this.findAppointmentDetail(appointmentId);
+    if (current === null) return { outcome: 'not_found' };
+    if (idempotencyKey !== null && current.idempotencyKey === idempotencyKey) return { outcome: 'success', appointment: current, replay: true };
+    if (!canMarkNoShow(current.status)) return { outcome: 'invalid_transition' };
+
+    if (current.calledAt === null) {
+      const row = await this.db
+        .updateTable('queueing.appointment')
+        .set({ called_at: now })
+        .where('id', '=', appointmentId)
+        .where('version', '=', expectedVersion)
+        .returning('id')
+        .executeTakeFirst();
+      if (row === undefined) return this.staleOrNotFound(appointmentId);
+      return { outcome: 'grace_period_not_elapsed', remainingSeconds: gracePeriodMinutes * 60 };
+    }
+
+    if (!hasGracePeriodElapsed(current.calledAt, gracePeriodMinutes, now)) {
+      return { outcome: 'grace_period_not_elapsed', remainingSeconds: remainingGracePeriodSeconds(current.calledAt, gracePeriodMinutes, now) };
+    }
+
+    const row = await this.db
+      .updateTable('queueing.appointment')
+      .set({
+        status: 'no_show',
+        no_show_marked_at: now,
+        no_show_marked_by: actorId,
+        ...(idempotencyKey !== null ? { idempotency_key: idempotencyKey } : {}),
+      })
+      .where('id', '=', appointmentId)
+      .where('version', '=', expectedVersion)
+      .returning('id')
+      .executeTakeFirst();
+
+    if (row === undefined) return this.staleOrNotFound(appointmentId);
+    const updated = await this.findAppointmentDetail(appointmentId);
+    return updated === null ? { outcome: 'not_found' } : { outcome: 'success', appointment: updated };
+  }
+
+  async reverseStatus(appointmentId: string, toStatus: AppointmentStatus, expectedVersion: number): Promise<ReversalOutcome> {
+    const current = await this.findAppointmentDetail(appointmentId);
+    if (current === null) return { outcome: 'not_found' };
+    if (!canReverseTo(current.status, toStatus)) return { outcome: 'invalid_reversal_target' };
+
+    const sessionRow = await this.db
+      .selectFrom('scheduling.clinic_session')
+      .select('status')
+      .where('id', '=', current.clinicSessionId)
+      .executeTakeFirst();
+    if (sessionRow !== undefined && (sessionRow.status === 'completed' || sessionRow.status === 'cancelled')) {
+      return { outcome: 'session_already_ended' };
+    }
+
+    const row = await this.db
+      .updateTable('queueing.appointment')
+      // A reversal away from `no_show` clears `called_at` too — VR-31's grace-period clock must restart if this same appointment is ever marked no-show again, not resume from the original call time.
+      .set({ status: toStatus, ...(current.status === 'no_show' ? { called_at: null } : {}) })
+      .where('id', '=', appointmentId)
+      .where('version', '=', expectedVersion)
+      .returning('id')
+      .executeTakeFirst();
+
+    if (row === undefined) return this.staleOrNotFound(appointmentId);
+    const updated = await this.findAppointmentDetail(appointmentId);
+    return updated === null ? { outcome: 'not_found' } : { outcome: 'success', appointment: updated };
+  }
+
+  async markEmergency(appointmentId: string, expectedVersion: number, reason: string): Promise<EmergencyOutcome> {
+    const current = await this.findAppointmentDetail(appointmentId);
+    if (current === null) return { outcome: 'not_found' };
+    if (current.isEmergency) return { outcome: 'already_emergency' };
+    if (isTerminal(current.status)) return { outcome: 'invalid_transition' };
+
+    const row = await this.db
+      .updateTable('queueing.appointment')
+      .set({ is_emergency: true, emergency_reason: reason })
+      .where('id', '=', appointmentId)
+      .where('version', '=', expectedVersion)
+      .returning('id')
+      .executeTakeFirst();
+
+    if (row === undefined) return this.staleOrNotFound(appointmentId);
+
+    const updated = await this.findAppointmentDetail(appointmentId);
+    if (updated === null) return { outcome: 'not_found' };
+
+    const others = await this.db
+      .selectFrom('queueing.appointment')
+      .select(['id as appointment_id', 'student_id', 'last_slip_notified_at'])
+      .where('clinic_session_id', '=', updated.clinicSessionId)
+      .where('id', '!=', appointmentId)
+      .where('status', 'in', ACTIVE_BOOKING_STATUSES)
+      .execute();
+
+    return {
+      outcome: 'success',
+      appointment: updated,
+      waitingAppointments: others.map((o) => ({ appointmentId: o.appointment_id, studentId: o.student_id, lastSlipNotifiedAt: o.last_slip_notified_at })),
+    };
+  }
+
+  async updateLastSlipNotifiedAt(appointmentIds: readonly string[], now: Date): Promise<void> {
+    if (appointmentIds.length === 0) return;
+    await this.db
+      .updateTable('queueing.appointment')
+      .set({ last_slip_notified_at: now })
+      .where('id', 'in', [...appointmentIds])
+      .execute();
   }
 }

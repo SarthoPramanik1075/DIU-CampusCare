@@ -131,6 +131,11 @@ function buildTestApp(repository: AnnouncementRepository, now: Date): Promise<Fa
     getBookingSuspension: undefined as unknown as Container['getBookingSuspension'],
     getQueueConsole: undefined as unknown as Container['getQueueConsole'],
     getSessionQueue: undefined as unknown as Container['getSessionQueue'],
+    checkInAppointment: undefined as unknown as Container['checkInAppointment'],
+    advanceAppointment: undefined as unknown as Container['advanceAppointment'],
+    markNoShow: undefined as unknown as Container['markNoShow'],
+    reverseAppointmentStatus: undefined as unknown as Container['reverseAppointmentStatus'],
+    markEmergency: undefined as unknown as Container['markEmergency'],
   };
 
   return buildApp(container);

@@ -60,8 +60,10 @@ import {
   type SsoClient,
 } from '../modules/iam/index.js';
 import {
+  AdvanceAppointmentHandler,
   BookAppointmentHandler,
   CancelAppointmentHandler,
+  CheckInAppointmentHandler,
   GetAppointmentDetailQuery,
   GetAvailabilityQuery,
   GetBookingSuspensionQuery,
@@ -71,6 +73,9 @@ import {
   KyselyAppointmentRepository,
   KyselyBookingSuspensionRepository,
   ListMyAppointmentsQuery,
+  MarkEmergencyHandler,
+  MarkNoShowHandler,
+  ReverseAppointmentStatusHandler,
   type AppointmentRepository,
   type BookingSuspensionRepository,
 } from '../modules/queueing/index.js';
@@ -192,6 +197,11 @@ export interface Container {
   readonly getBookingSuspension: GetBookingSuspensionQuery;
   readonly getQueueConsole: GetQueueConsoleQuery;
   readonly getSessionQueue: GetSessionQueueQuery;
+  readonly checkInAppointment: CheckInAppointmentHandler;
+  readonly advanceAppointment: AdvanceAppointmentHandler;
+  readonly markNoShow: MarkNoShowHandler;
+  readonly reverseAppointmentStatus: ReverseAppointmentStatusHandler;
+  readonly markEmergency: MarkEmergencyHandler;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -335,6 +345,12 @@ export function buildContainer(config: AppConfig): Container {
   const getQueueConsole = new GetQueueConsoleQuery(listClinicSessions, appointmentRepository, auditRecorder);
   const getSessionQueue = new GetSessionQueueQuery(appointmentRepository, auditRecorder);
 
+  const checkInAppointment = new CheckInAppointmentHandler(appointmentRepository, auditRecorder, clock);
+  const advanceAppointment = new AdvanceAppointmentHandler(appointmentRepository, auditRecorder, clock);
+  const markNoShow = new MarkNoShowHandler(appointmentRepository, bookingSuspensionRepository, policyStore, auditRecorder, clock, (input) => enqueueNotification(db, input));
+  const reverseAppointmentStatus = new ReverseAppointmentStatusHandler(appointmentRepository, bookingSuspensionRepository, policyStore, auditRecorder, clock);
+  const markEmergency = new MarkEmergencyHandler(appointmentRepository, policyStore, auditRecorder, clock, (input) => enqueueNotification(db, input));
+
   return {
     config,
     logger,
@@ -410,6 +426,11 @@ export function buildContainer(config: AppConfig): Container {
     getBookingSuspension,
     getQueueConsole,
     getSessionQueue,
+    checkInAppointment,
+    advanceAppointment,
+    markNoShow,
+    reverseAppointmentStatus,
+    markEmergency,
   };
 }
 
