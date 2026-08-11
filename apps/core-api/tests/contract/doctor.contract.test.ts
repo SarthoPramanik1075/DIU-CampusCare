@@ -343,6 +343,8 @@ async function buildTestApp(): Promise<{ app: FastifyInstance; doctorRepository:
     getQueuePosition: undefined as unknown as Container['getQueuePosition'],
     bookingSuspensionRepository: undefined as unknown as Container['bookingSuspensionRepository'],
     getBookingSuspension: undefined as unknown as Container['getBookingSuspension'],
+    getQueueConsole: undefined as unknown as Container['getQueueConsole'],
+    getSessionQueue: undefined as unknown as Container['getSessionQueue'],
   };
 
   return { app: await buildApp(container), doctorRepository };

@@ -52,8 +52,10 @@ export {
   type CreateBookingInput,
   type CreateBookingOutcome,
   type MyAppointmentListItem,
+  type QueueConsoleRow,
   type QueueEntrySummary,
   type ServiceCalendarClosure,
+  type SessionQueueContext,
   type SlotBookingContext,
 } from './application/appointment-repository.js';
 export { BookAppointmentHandler, type BookAppointmentCommandInput } from './application/book-appointment.handler.js';
@@ -64,6 +66,9 @@ export { GetQueuePositionQuery, type QueuePositionResult } from './application/q
 export { ListMyAppointmentsQuery } from './application/queries/list-my-appointments.query.js';
 export { GetBookingSuspensionQuery, type BookingSuspensionState } from './application/queries/get-booking-suspension.query.js';
 export type { BookingSuspensionDetail, BookingSuspensionRepository } from './application/booking-suspension-repository.js';
+export { computeCounts, GetQueueConsoleQuery, type QueueConsoleRowWithActions, type QueueConsoleSession, type QueueCounts } from './application/queries/get-queue-console.query.js';
+export { GetSessionQueueQuery, type SessionQueueResult, type SessionQueueViewer, type SessionQueueViewerRole } from './application/queries/get-session-queue.query.js';
 export { KyselyAppointmentRepository } from './infrastructure/appointment.repository.js';
 export { KyselyBookingSuspensionRepository } from './infrastructure/booking-suspension.repository.js';
 export { registerAppointmentRoutes, type AppointmentRouteDeps } from './interface/http/appointment.routes.js';
+export { registerQueueConsoleRoutes, type QueueConsoleRouteDeps } from './interface/http/queue-console.routes.js';

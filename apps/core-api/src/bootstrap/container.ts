@@ -65,7 +65,9 @@ import {
   GetAppointmentDetailQuery,
   GetAvailabilityQuery,
   GetBookingSuspensionQuery,
+  GetQueueConsoleQuery,
   GetQueuePositionQuery,
+  GetSessionQueueQuery,
   KyselyAppointmentRepository,
   KyselyBookingSuspensionRepository,
   ListMyAppointmentsQuery,
@@ -188,6 +190,8 @@ export interface Container {
   readonly getQueuePosition: GetQueuePositionQuery;
   readonly bookingSuspensionRepository: BookingSuspensionRepository;
   readonly getBookingSuspension: GetBookingSuspensionQuery;
+  readonly getQueueConsole: GetQueueConsoleQuery;
+  readonly getSessionQueue: GetSessionQueueQuery;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -328,6 +332,8 @@ export function buildContainer(config: AppConfig): Container {
   const getQueuePosition = new GetQueuePositionQuery(appointmentRepository, policyStore, clock);
   const bookingSuspensionRepository: BookingSuspensionRepository = new KyselyBookingSuspensionRepository(db);
   const getBookingSuspension = new GetBookingSuspensionQuery(bookingSuspensionRepository, clock);
+  const getQueueConsole = new GetQueueConsoleQuery(listClinicSessions, appointmentRepository, auditRecorder);
+  const getSessionQueue = new GetSessionQueueQuery(appointmentRepository, auditRecorder);
 
   return {
     config,
@@ -402,6 +408,8 @@ export function buildContainer(config: AppConfig): Container {
     getQueuePosition,
     bookingSuspensionRepository,
     getBookingSuspension,
+    getQueueConsole,
+    getSessionQueue,
   };
 }
 

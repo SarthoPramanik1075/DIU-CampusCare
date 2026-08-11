@@ -129,6 +129,8 @@ function buildTestApp(repository: AnnouncementRepository, now: Date): Promise<Fa
     getQueuePosition: undefined as unknown as Container['getQueuePosition'],
     bookingSuspensionRepository: undefined as unknown as Container['bookingSuspensionRepository'],
     getBookingSuspension: undefined as unknown as Container['getBookingSuspension'],
+    getQueueConsole: undefined as unknown as Container['getQueueConsole'],
+    getSessionQueue: undefined as unknown as Container['getSessionQueue'],
   };
 
   return buildApp(container);

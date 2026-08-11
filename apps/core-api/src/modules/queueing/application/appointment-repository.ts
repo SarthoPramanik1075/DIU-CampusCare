@@ -19,6 +19,17 @@ export interface AvailableSlotItem {
   readonly slotStartsAt: Date;
 }
 
+/** `GET /api/v1/sessions/{id}/queue`'s (API §4.2) own self-sufficient read — queried directly rather than through `modules/scheduling`'s `GetClinicSessionQuery`, since the DOC ownership check needs `doctorUserAccountId`, a field that query's own shape has no reason to carry. */
+export interface SessionQueueContext {
+  readonly sessionId: string;
+  readonly doctorId: string;
+  readonly doctorName: string;
+  readonly doctorUserAccountId: string | null;
+  readonly sessionStatus: string;
+  readonly startsAt: Date;
+  readonly endsAt: Date;
+}
+
 export interface BookedAppointment {
   readonly appointmentId: string;
   readonly appointmentRef: string;
@@ -120,6 +131,27 @@ export interface QueueEntrySummary {
   readonly status: AppointmentStatus;
 }
 
+/** F-01's console row (API §4.2) — everything the staff table needs to render one patient without a second round trip. */
+export interface QueueConsoleRow {
+  readonly appointmentId: string;
+  readonly appointmentRef: string;
+  readonly serialNumber: number;
+  readonly isEmergency: boolean;
+  readonly status: AppointmentStatus;
+  readonly origin: 'booked' | 'walk_in';
+  /** Not part of the console DTO — carried through for FR-AUD-03's per-distinct-student audit write, same as `preview-unavailability.handler.ts`'s. */
+  readonly studentId: string | null;
+  readonly studentRef: string | null;
+  readonly studentName: string | null;
+  readonly unregisteredName: string | null;
+  readonly currentEstimate: Date | null;
+  readonly checkedInAt: Date | null;
+  readonly paymentStatus: PaymentState;
+  readonly exceededWalkinAllocation: boolean;
+  readonly enteredRetrospectively: boolean;
+  readonly version: number;
+}
+
 export interface AppointmentRepository {
   findSlotBookingContext(sessionSlotId: string): Promise<SlotBookingContext | null>;
   listAvailableSlots(sessionId: string): Promise<readonly AvailableSlotItem[]>;
@@ -131,9 +163,10 @@ export interface AppointmentRepository {
   findActiveSuspension(studentId: string, now: Date): Promise<ActiveSuspension | null>;
   createBooking(input: CreateBookingInput): Promise<CreateBookingOutcome>;
   findAppointmentDetail(appointmentId: string): Promise<AppointmentDetail | null>;
-  /** DOC's own-session anti-enumeration check (PRM-07) — a cheap existence probe the route/query layer uses before deciding 404 vs. real data. */
-  findDoctorIdForAppointment(appointmentId: string): Promise<string | null>;
   listMyAppointments(studentId: string, scope: AppointmentListScope, todayIsoDate: string, limit: number): Promise<readonly MyAppointmentListItem[]>;
   cancelAppointment(appointmentId: string, expectedVersion: number, classification: 'cancelled' | 'late_cancellation', reason: string | null, now: Date): Promise<CancelAppointmentOutcome>;
   listActiveQueueEntries(clinicSessionId: string): Promise<readonly QueueEntrySummary[]>;
+  /** F-01's console rows for one session — every non-terminal-or-recently-terminal entry, unordered (the caller applies `orderQueue`). */
+  listConsoleRows(clinicSessionId: string): Promise<readonly QueueConsoleRow[]>;
+  findSessionQueueContext(sessionId: string): Promise<SessionQueueContext | null>;
 }

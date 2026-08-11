@@ -14,8 +14,10 @@ import {
   type CreateBookingInput,
   type CreateBookingOutcome,
   type MyAppointmentListItem,
+  type QueueConsoleRow,
   type QueueEntrySummary,
   type ServiceCalendarClosure,
+  type SessionQueueContext,
   type SlotBookingContext,
 } from '../application/appointment-repository.js';
 import { formatAppointmentRef } from '../domain/appointment-ref.js';
@@ -267,16 +269,6 @@ export class KyselyAppointmentRepository implements AppointmentRepository {
     };
   }
 
-  async findDoctorIdForAppointment(appointmentId: string): Promise<string | null> {
-    const row = await this.db
-      .selectFrom('queueing.appointment')
-      .innerJoin('scheduling.clinic_session', 'scheduling.clinic_session.id', 'queueing.appointment.clinic_session_id')
-      .select('scheduling.clinic_session.doctor_id')
-      .where('queueing.appointment.id', '=', appointmentId)
-      .executeTakeFirst();
-    return row?.doctor_id ?? null;
-  }
-
   async listMyAppointments(studentId: string, scope: AppointmentListScope, todayIsoDate: string, limit: number): Promise<readonly MyAppointmentListItem[]> {
     let query = this.db
       .selectFrom('queueing.appointment')
@@ -365,5 +357,79 @@ export class KyselyAppointmentRepository implements AppointmentRepository {
       .where('status', 'in', ACTIVE_BOOKING_STATUSES)
       .execute();
     return rows.map((row) => ({ appointmentId: row.id, serialNumber: row.serial_number, isEmergency: row.is_emergency, status: row.status }));
+  }
+
+  async listConsoleRows(clinicSessionId: string): Promise<readonly QueueConsoleRow[]> {
+    const rows = await this.db
+      .selectFrom('queueing.appointment')
+      .leftJoin('identity.student_profile', 'identity.student_profile.user_account_id', 'queueing.appointment.student_id')
+      .leftJoin('identity.user_account', 'identity.user_account.id', 'queueing.appointment.student_id')
+      .select([
+        'queueing.appointment.id as appointment_id',
+        'queueing.appointment.appointment_ref',
+        'queueing.appointment.serial_number',
+        'queueing.appointment.is_emergency',
+        'queueing.appointment.status',
+        'queueing.appointment.origin',
+        'queueing.appointment.student_id',
+        'identity.student_profile.student_ref',
+        'identity.user_account.full_name as student_name',
+        'queueing.appointment.unregistered_name',
+        'queueing.appointment.current_estimate',
+        'queueing.appointment.checked_in_at',
+        'queueing.appointment.payment_status',
+        'queueing.appointment.exceeded_walkin_allocation',
+        'queueing.appointment.entered_retrospectively',
+        'queueing.appointment.version',
+      ])
+      .where('queueing.appointment.clinic_session_id', '=', clinicSessionId)
+      .execute();
+
+    return rows.map((row) => ({
+      appointmentId: row.appointment_id,
+      appointmentRef: row.appointment_ref,
+      serialNumber: row.serial_number,
+      isEmergency: row.is_emergency,
+      status: row.status,
+      origin: row.origin,
+      studentId: row.student_id,
+      studentRef: row.student_ref,
+      studentName: row.student_name,
+      unregisteredName: row.unregistered_name,
+      currentEstimate: row.current_estimate,
+      checkedInAt: row.checked_in_at,
+      paymentStatus: row.payment_status,
+      exceededWalkinAllocation: row.exceeded_walkin_allocation,
+      enteredRetrospectively: row.entered_retrospectively,
+      version: row.version,
+    }));
+  }
+
+  async findSessionQueueContext(sessionId: string): Promise<SessionQueueContext | null> {
+    const row = await this.db
+      .selectFrom('scheduling.clinic_session')
+      .innerJoin('scheduling.doctor', 'scheduling.doctor.id', 'scheduling.clinic_session.doctor_id')
+      .select([
+        'scheduling.clinic_session.id as session_id',
+        'scheduling.doctor.id as doctor_id',
+        'scheduling.doctor.full_name as doctor_name',
+        'scheduling.doctor.user_account_id as doctor_user_account_id',
+        'scheduling.clinic_session.status as session_status',
+        'scheduling.clinic_session.starts_at',
+        'scheduling.clinic_session.ends_at',
+      ])
+      .where('scheduling.clinic_session.id', '=', sessionId)
+      .executeTakeFirst();
+
+    if (row === undefined) return null;
+    return {
+      sessionId: row.session_id,
+      doctorId: row.doctor_id,
+      doctorName: row.doctor_name,
+      doctorUserAccountId: row.doctor_user_account_id,
+      sessionStatus: row.session_status,
+      startsAt: row.starts_at,
+      endsAt: row.ends_at,
+    };
   }
 }
