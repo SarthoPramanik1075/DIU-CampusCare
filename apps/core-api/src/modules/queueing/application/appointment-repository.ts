@@ -26,10 +26,13 @@ export interface SessionQueueContext {
   readonly doctorName: string;
   readonly doctorUserAccountId: string | null;
   readonly sessionStatus: string;
+  readonly sessionDate: string;
   readonly startsAt: Date;
   readonly endsAt: Date;
   /** FR-APT-22's floor and EC-15's anomaly ceiling are both expressed relative to this — reused here rather than re-fetched by `RecalculateSessionEstimatesHandler`. */
   readonly slotLengthMinutes: number;
+  readonly totalSlotCount: number;
+  readonly bookableSlotCount: number;
 }
 
 export interface BookedAppointment {
@@ -216,6 +219,42 @@ export interface ExpiredBookingNotice {
   readonly sessionDate: string;
 }
 
+/** VR-29 resolution (M3-I) — `POST /walk-ins`'s `studentRef` half. */
+export interface StudentByRef {
+  readonly studentId: string;
+  readonly fullName: string;
+}
+
+export interface CreateWalkInInput {
+  readonly clinicSessionId: string;
+  readonly studentId: string | null;
+  readonly unregisteredName: string | null;
+  readonly visitReasonCategoryId: string | null;
+  readonly isEmergency: boolean;
+  readonly emergencyReason: string | null;
+  readonly createdBy: string;
+  readonly idempotencyKey: string | null;
+}
+
+/** A walk-in enters the queue already `waiting` (FR-APT-35) — staff registering them at the counter is itself the arrival event a booked patient's separate check-in step exists for. */
+export interface WalkInAppointment {
+  readonly appointmentId: string;
+  readonly appointmentRef: string;
+  readonly clinicSessionId: string;
+  readonly serialNumber: number;
+  readonly status: AppointmentStatus;
+  readonly isEmergency: boolean;
+  readonly currentEstimate: Date | null;
+  readonly exceededWalkinAllocation: boolean;
+  readonly studentId: string | null;
+  readonly version: number;
+}
+
+export type CreateWalkInOutcome =
+  | { readonly outcome: 'created'; readonly appointment: WalkInAppointment; readonly replay?: true }
+  /** `uq_appointment_student_session_active` fired for a reason other than idempotency replay — this student already has an active entry in this session. */
+  | { readonly outcome: 'already_active_in_session' };
+
 export interface AppointmentRepository {
   findSlotBookingContext(sessionSlotId: string): Promise<SlotBookingContext | null>;
   listAvailableSlots(sessionId: string): Promise<readonly AvailableSlotItem[]>;
@@ -248,4 +287,6 @@ export interface AppointmentRepository {
   recordEstimateAccuracySample(input: EstimateAccuracySampleInput): Promise<void>;
   /** FR-APT-33/BR-22/EC-13 — every `booked` appointment in a session that ended (`ends_at < now`) while still `scheduled` (never started by staff) transitions to `expired`, never `no_show`. Returns one notice per row actually swept. */
   expireUnstartedSessionBookings(now: Date): Promise<readonly ExpiredBookingNotice[]>;
+  findStudentByRef(studentRef: string): Promise<StudentByRef | null>;
+  createWalkIn(input: CreateWalkInInput, now: Date): Promise<CreateWalkInOutcome>;
 }

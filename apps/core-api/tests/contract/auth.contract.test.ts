@@ -321,6 +321,7 @@ async function buildTestApp(): Promise<{
     recalculateSessionEstimates: undefined as unknown as Container['recalculateSessionEstimates'],
     recordConsultationMetrics: undefined as unknown as Container['recordConsultationMetrics'],
     expireUnstartedSessionBookings: undefined as unknown as Container['expireUnstartedSessionBookings'],
+    registerWalkIn: undefined as unknown as Container['registerWalkIn'],
   };
 
   return { app: await buildApp(container), repository, sentEmails };

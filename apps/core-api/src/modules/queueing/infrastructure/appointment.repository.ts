@@ -13,6 +13,8 @@ import {
   type CancelAppointmentOutcome,
   type CreateBookingInput,
   type CreateBookingOutcome,
+  type CreateWalkInInput,
+  type CreateWalkInOutcome,
   type EmergencyOutcome,
   type EstimateAccuracySampleInput,
   type ExpiredBookingNotice,
@@ -25,7 +27,9 @@ import {
   type ServiceCalendarClosure,
   type SessionQueueContext,
   type SlotBookingContext,
+  type StudentByRef,
   type TransitionOutcome,
+  type WalkInAppointment,
 } from '../application/appointment-repository.js';
 import { formatAppointmentRef } from '../domain/appointment-ref.js';
 import { canAdvanceTo, canCancel, canCheckIn, canMarkNoShow, canReverseTo, isTerminal, type AppointmentStatus } from '../domain/appointment-status.js';
@@ -36,6 +40,13 @@ const PG_UNIQUE_VIOLATION = '23505';
 
 function isUniqueViolation(error: unknown): boolean {
   return typeof error === 'object' && error !== null && 'code' in error && error.code === PG_UNIQUE_VIOLATION;
+}
+
+/** `queueing.appointment.idempotency_key`'s auto-generated constraint name (confirmed via `\d queueing.appointment`) — the only unique-violation `createWalkIn` treats as a replay rather than a genuine conflict. */
+const IDEMPOTENCY_KEY_CONSTRAINT = 'appointment_idempotency_key_key';
+
+function constraintName(error: unknown): string | undefined {
+  return typeof error === 'object' && error !== null && 'constraint' in error && typeof error.constraint === 'string' ? error.constraint : undefined;
 }
 
 export class KyselyAppointmentRepository implements AppointmentRepository {
@@ -431,9 +442,12 @@ export class KyselyAppointmentRepository implements AppointmentRepository {
         'scheduling.doctor.full_name as doctor_name',
         'scheduling.doctor.user_account_id as doctor_user_account_id',
         'scheduling.clinic_session.status as session_status',
+        'scheduling.clinic_session.session_date',
         'scheduling.clinic_session.starts_at',
         'scheduling.clinic_session.ends_at',
         'scheduling.clinic_session.slot_length_minutes',
+        'scheduling.clinic_session.total_slot_count',
+        'scheduling.clinic_session.bookable_slot_count',
       ])
       .where('scheduling.clinic_session.id', '=', sessionId)
       .executeTakeFirst();
@@ -445,9 +459,12 @@ export class KyselyAppointmentRepository implements AppointmentRepository {
       doctorName: row.doctor_name,
       doctorUserAccountId: row.doctor_user_account_id,
       sessionStatus: row.session_status,
+      sessionDate: row.session_date,
       startsAt: row.starts_at,
       endsAt: row.ends_at,
       slotLengthMinutes: row.slot_length_minutes,
+      totalSlotCount: row.total_slot_count,
+      bookableSlotCount: row.bookable_slot_count,
     };
   }
 
@@ -727,5 +744,134 @@ export class KyselyAppointmentRepository implements AppointmentRepository {
       doctorName: row.doctor_name,
       sessionDate: row.session_date,
     }));
+  }
+
+  async findStudentByRef(studentRef: string): Promise<StudentByRef | null> {
+    const row = await this.db
+      .selectFrom('identity.student_profile')
+      .innerJoin('identity.user_account', 'identity.user_account.id', 'identity.student_profile.user_account_id')
+      .select(['identity.student_profile.user_account_id as student_id', 'identity.user_account.full_name'])
+      .where('identity.student_profile.student_ref', '=', studentRef)
+      .executeTakeFirst();
+    return row === undefined ? null : { studentId: row.student_id, fullName: row.full_name };
+  }
+
+  private static toWalkInAppointment(row: {
+    readonly id: string;
+    readonly appointment_ref: string;
+    readonly clinic_session_id: string;
+    readonly serial_number: number;
+    readonly status: AppointmentStatus;
+    readonly is_emergency: boolean;
+    readonly current_estimate: Date | null;
+    readonly exceeded_walkin_allocation: boolean;
+    readonly student_id: string | null;
+    readonly version: number;
+  }): WalkInAppointment {
+    return {
+      appointmentId: row.id,
+      appointmentRef: row.appointment_ref,
+      clinicSessionId: row.clinic_session_id,
+      serialNumber: row.serial_number,
+      status: row.status,
+      isEmergency: row.is_emergency,
+      currentEstimate: row.current_estimate,
+      exceededWalkinAllocation: row.exceeded_walkin_allocation,
+      studentId: row.student_id,
+      version: row.version,
+    };
+  }
+
+  /**
+   * FR-APT-35…38/42, EC-09/10, M3-T12/T13. `exceeded_walkin_allocation` is
+   * computed from a plain `COUNT(*)` against the session's own walk-in
+   * allocation (`total_slot_count - bookable_slot_count`) — under
+   * concurrent registrations this count can race (EC-10's own flag is
+   * informational, "care is never refused" either way), unlike the serial
+   * number, which is the one invariant `queueing.fn_next_serial`'s
+   * row-locking actually guarantees race-free (the property the
+   * concurrency test below asserts).
+   */
+  async createWalkIn(input: CreateWalkInInput, now: Date): Promise<CreateWalkInOutcome> {
+    const id = uuidv7();
+    const year = now.getUTCFullYear();
+
+    try {
+      const appointment = await this.db.transaction().execute(async (trx) => {
+        const sessionRow = await trx
+          .selectFrom('scheduling.clinic_session')
+          .select(['total_slot_count', 'bookable_slot_count'])
+          .where('id', '=', input.clinicSessionId)
+          .executeTakeFirstOrThrow();
+        const allocationCount = sessionRow.total_slot_count - sessionRow.bookable_slot_count;
+
+        const existingWalkInsRow = await trx
+          .selectFrom('queueing.appointment')
+          .select(({ fn }) => fn.countAll<string>().as('count'))
+          .where('clinic_session_id', '=', input.clinicSessionId)
+          .where('origin', '=', 'walk_in')
+          .executeTakeFirst();
+        const exceededWalkinAllocation = Number(existingWalkInsRow?.count ?? 0) >= allocationCount;
+
+        const refRow = await sql<{ next_ref: string }>`SELECT nextval('queueing.appointment_ref_seq') AS next_ref`.execute(trx);
+        const appointmentRef = formatAppointmentRef(year, Number(refRow.rows[0]?.next_ref));
+
+        const serialRow = await sql<{ serial: number }>`SELECT queueing.fn_next_serial(${input.clinicSessionId}::uuid) AS serial`.execute(trx);
+        const serialNumber = Number(serialRow.rows[0]?.serial);
+
+        await trx
+          .insertInto('queueing.appointment')
+          .values({
+            id,
+            appointment_ref: appointmentRef,
+            clinic_session_id: input.clinicSessionId,
+            session_slot_id: null,
+            student_id: input.studentId,
+            unregistered_name: input.unregisteredName,
+            origin: 'walk_in',
+            status: 'waiting',
+            serial_number: serialNumber,
+            is_emergency: input.isEmergency,
+            emergency_reason: input.emergencyReason,
+            visit_reason_category_id: input.visitReasonCategoryId,
+            estimate_at_booking: now,
+            current_estimate: now,
+            checked_in_at: now,
+            exceeded_walkin_allocation: exceededWalkinAllocation,
+            entered_retrospectively: false,
+            idempotency_key: input.idempotencyKey,
+            created_by: input.createdBy,
+          })
+          .execute();
+
+        return {
+          id,
+          appointment_ref: appointmentRef,
+          clinic_session_id: input.clinicSessionId,
+          serial_number: serialNumber,
+          status: 'waiting' as const,
+          is_emergency: input.isEmergency,
+          current_estimate: now,
+          exceeded_walkin_allocation: exceededWalkinAllocation,
+          student_id: input.studentId,
+          version: 1,
+        };
+      });
+
+      return { outcome: 'created', appointment: KyselyAppointmentRepository.toWalkInAppointment(appointment) };
+    } catch (error) {
+      if (!isUniqueViolation(error)) throw error;
+
+      if (constraintName(error) === IDEMPOTENCY_KEY_CONSTRAINT && input.idempotencyKey !== null) {
+        const existing = await this.db
+          .selectFrom('queueing.appointment')
+          .select(['id', 'appointment_ref', 'clinic_session_id', 'serial_number', 'status', 'is_emergency', 'current_estimate', 'exceeded_walkin_allocation', 'student_id', 'version'])
+          .where('idempotency_key', '=', input.idempotencyKey)
+          .executeTakeFirstOrThrow();
+        return { outcome: 'created', appointment: KyselyAppointmentRepository.toWalkInAppointment(existing), replay: true };
+      }
+
+      return { outcome: 'already_active_in_session' };
+    }
   }
 }

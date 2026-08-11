@@ -51,6 +51,8 @@ export {
   type CancelledAppointment,
   type CreateBookingInput,
   type CreateBookingOutcome,
+  type CreateWalkInInput,
+  type CreateWalkInOutcome,
   type EmergencyOutcome,
   type EstimateAccuracySampleInput,
   type ExpiredBookingNotice,
@@ -63,8 +65,10 @@ export {
   type ServiceCalendarClosure,
   type SessionQueueContext,
   type SlotBookingContext,
+  type StudentByRef,
   type TransitionOutcome,
   type WaitingQueueEntry,
+  type WalkInAppointment,
 } from './application/appointment-repository.js';
 export { BookAppointmentHandler, type BookAppointmentCommandInput } from './application/book-appointment.handler.js';
 export { appointmentNotFoundError, CancelAppointmentHandler, type CancelAppointmentCommandInput } from './application/cancel-appointment.handler.js';
@@ -80,6 +84,7 @@ export { MarkEmergencyHandler, type MarkEmergencyCommandInput, type MarkEmergenc
 export { RecalculateSessionEstimatesHandler } from './application/recalculate-session-estimates.handler.js';
 export { RecordConsultationMetricsHandler, type RecordConsultationMetricsInput } from './application/record-consultation-metrics.handler.js';
 export { ExpireUnstartedSessionBookingsHandler, type ExpireUnstartedSessionBookingsResult } from './application/expire-unstarted-session-bookings.handler.js';
+export { RegisterWalkInHandler, type RegisterWalkInCommandInput, type RegisterWalkInResult } from './application/register-walk-in.handler.js';
 export { GetAvailabilityQuery, type AvailabilitySessionItem } from './application/queries/get-availability.query.js';
 export { GetAppointmentDetailQuery, type AppointmentViewer, type AppointmentViewerRole } from './application/queries/get-appointment-detail.query.js';
 export { GetQueuePositionQuery, type QueuePositionResult } from './application/queries/get-queue-position.query.js';
@@ -92,3 +97,4 @@ export { KyselyAppointmentRepository } from './infrastructure/appointment.reposi
 export { KyselyBookingSuspensionRepository } from './infrastructure/booking-suspension.repository.js';
 export { registerAppointmentRoutes, type AppointmentRouteDeps } from './interface/http/appointment.routes.js';
 export { registerQueueConsoleRoutes, type QueueConsoleRouteDeps } from './interface/http/queue-console.routes.js';
+export { registerWalkInRoutes, type WalkInRouteDeps } from './interface/http/walk-in.routes.js';

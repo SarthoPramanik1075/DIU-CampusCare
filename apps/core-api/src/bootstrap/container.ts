@@ -78,6 +78,7 @@ import {
   MarkNoShowHandler,
   RecalculateSessionEstimatesHandler,
   RecordConsultationMetricsHandler,
+  RegisterWalkInHandler,
   ReverseAppointmentStatusHandler,
   type AppointmentRepository,
   type BookingSuspensionRepository,
@@ -208,6 +209,7 @@ export interface Container {
   readonly recalculateSessionEstimates: RecalculateSessionEstimatesHandler;
   readonly recordConsultationMetrics: RecordConsultationMetricsHandler;
   readonly expireUnstartedSessionBookings: ExpireUnstartedSessionBookingsHandler;
+  readonly registerWalkIn: RegisterWalkInHandler;
 }
 
 export function buildContainer(config: AppConfig): Container {
@@ -375,6 +377,7 @@ export function buildContainer(config: AppConfig): Container {
   );
   const reverseAppointmentStatus = new ReverseAppointmentStatusHandler(appointmentRepository, bookingSuspensionRepository, policyStore, auditRecorder, clock, recalculateSessionEstimates);
   const markEmergency = new MarkEmergencyHandler(appointmentRepository, policyStore, auditRecorder, clock, (input) => enqueueNotification(db, input), recalculateSessionEstimates);
+  const registerWalkIn = new RegisterWalkInHandler(appointmentRepository, auditRecorder, clock, recalculateSessionEstimates);
 
   return {
     config,
@@ -459,6 +462,7 @@ export function buildContainer(config: AppConfig): Container {
     recalculateSessionEstimates,
     recordConsultationMetrics,
     expireUnstartedSessionBookings,
+    registerWalkIn,
   };
 }
 
